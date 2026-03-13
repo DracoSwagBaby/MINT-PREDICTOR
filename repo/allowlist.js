@@ -1,1 +1,3 @@
-
+const ALLOWLIST = [
+    "3cc23260-0fa4-44f2-baf7-59143b5a483f"
+];
