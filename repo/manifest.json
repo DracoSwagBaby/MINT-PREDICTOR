@@ -2,14 +2,13 @@
   "manifest_version": 3,
   "name": "MINT-FLIP Predictor",
   "version": "1.0",
-  "description": "Mines, Towers & Blackjack Predictor",
+  "description": "MINT-FLIP | TOP 1# PREDICTOR"
   "permissions": [
     "storage"
   ],
   "host_permissions": [
     "https://bloxgame.com/*",
-    "https://www.bloxgame.com/*",
-    "https://pastebin.com/*"
+    "https://www.bloxgame.com/*"
   ],
   "content_scripts": [
     {
