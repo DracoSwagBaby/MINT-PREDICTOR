@@ -126,36 +126,18 @@
         }
 
         @keyframes popIn {
-            0% {
-                opacity: 0;
-                transform: scale(0.8);
-            }
-            100% {
-                opacity: 1;
-                transform: scale(1);
-            }
+            0% { opacity: 0; transform: scale(0.8); }
+            100% { opacity: 1; transform: scale(1); }
         }
 
         @keyframes popOut {
-            0% {
-                opacity: 1;
-                transform: scale(1);
-            }
-            100% {
-                opacity: 0;
-                transform: scale(0.8);
-            }
+            0% { opacity: 1; transform: scale(1); }
+            100% { opacity: 0; transform: scale(0.8); }
         }
 
         @keyframes goldPulse {
-            0%, 100% {
-                border-color: #ffd700;
-                box-shadow: 0 0 20px rgba(255, 215, 0, 0.2);
-            }
-            50% {
-                border-color: #ffaa00;
-                box-shadow: 0 0 30px rgba(255, 215, 0, 0.4);
-            }
+            0%, 100% { border-color: #ffd700; box-shadow: 0 0 20px rgba(255, 215, 0, 0.2); }
+            50% { border-color: #ffaa00; box-shadow: 0 0 30px rgba(255, 215, 0, 0.4); }
         }
 
         .mintflip-header {
@@ -438,15 +420,6 @@
             padding-top: 16px;
         }
 
-        .mintflip-copyright {
-            color: #2a8b6f;
-            text-align: center;
-            font-size: 10px;
-            margin-top: 8px;
-            letter-spacing: 0.5px;
-            opacity: 0.8;
-        }
-
         .mintflip-success {
             width: 100%;
             padding: 14px;
@@ -716,75 +689,75 @@
     copyright.className = 'mintflip-copyright';
     copyright.innerHTML = 'MINT-FLIP © 2026';
 
-// Tutorial content with Linkvertise checkpoints (no emojis)
-const tutorialContent = document.createElement('div');
-tutorialContent.className = 'mintflip-tutorial-content';
-tutorialContent.innerHTML = `
-    <div class="tutorial-step">
-        <h3>STEP 1: Linkvertise Link</h3>
-        <p>Complete <span class="tutorial-highlight">1 checkpoint</span> on the link below:</p>
-        <div style="background: #1a4d3e; border-radius: 8px; padding: 12px; margin: 10px 0; text-align: center;">
-            <a href="https://link-hub.net/1249148/ue8g5fynIsn0" target="_blank" style="color: #48d19d; font-weight: bold; text-decoration: none; font-size: 16px;">COMPLETE LINKVERTISE</a>
+    // Tutorial content with Linkvertise checkpoints
+    const tutorialContent = document.createElement('div');
+    tutorialContent.className = 'mintflip-tutorial-content';
+    tutorialContent.innerHTML = `
+        <div class="tutorial-step">
+            <h3>STEP 1: Linkvertise Link</h3>
+            <p>Complete <span class="tutorial-highlight">1 checkpoint</span> on the link below:</p>
+            <div style="background: #1a4d3e; border-radius: 8px; padding: 12px; margin: 10px 0; text-align: center;">
+                <a href="https://link-hub.net/1249148/ue8g5fynIsn0" target="_blank" style="color: #48d19d; font-weight: bold; text-decoration: none; font-size: 16px;">COMPLETE LINKVERTISE</a>
+            </div>
+            <p style="font-size: 12px; color: #888;">Takes about 30-60 seconds</p>
         </div>
-        <p style="font-size: 12px; color: #888;">Takes about 30-60 seconds</p>
-    </div>
-    
-    <div class="tutorial-step">
-        <h3>STEP 2: Get Your Key</h3>
-        <p>After completing first checkpoints, your key will be shown on the page.</p>
-        <p style="background: #111; border: 1px solid #1a4d3e; border-radius: 6px; padding: 10px; margin-top: 10px; text-align: center; font-family: monospace; color: #48d19d;">Key appears after first checkpoint</p>
-    </div>
-    
-    <div class="tutorial-step">
-        <h3>STEP 3: Enter Key</h3>
-        <p>Copy your key and paste it in the main window</p>
-    </div>
-    
-    <div class="tutorial-step">
-        <h3>STEP 4: Enjoy</h3>
-        <p>Once verified, you'll get full access to Mint-FLIP</p>
-    </div>
-    
-    <div class="tutorial-note">
-        <p><span class="highlight">Key format:</span> XXXX-XXXX-XXXX</p>
-        <p><span style="color: #48d19d;">Keys are free and refresh daily!</span></p>
-    </div>
-`;
+        
+        <div class="tutorial-step">
+            <h3>STEP 2: Get Your Key</h3>
+            <p>After completing first checkpoint, your key will be shown on the page.</p>
+            <p style="background: #111; border: 1px solid #1a4d3e; border-radius: 6px; padding: 10px; margin-top: 10px; text-align: center; font-family: monospace; color: #48d19d;">Key appears after first checkpoint</p>
+        </div>
+        
+        <div class="tutorial-step">
+            <h3>STEP 3: Enter Key</h3>
+            <p>Copy your key and paste it in the main window</p>
+        </div>
+        
+        <div class="tutorial-step">
+            <h3>STEP 4: Enjoy</h3>
+            <p>Once verified, you'll get full access to Mint-FLIP</p>
+        </div>
+        
+        <div class="tutorial-note">
+            <p><span class="highlight">Key format:</span> XXXX-XXXX-XXXX</p>
+            <p><span style="color: #48d19d;">Keys are free and refresh daily!</span></p>
+        </div>
+    `;
 
-// Premium content
-const premiumContent = document.createElement('div');
-premiumContent.className = 'mintflip-premium-content';
-premiumContent.innerHTML = `
-    <div class="premium-step">
-        <h3>STEP 1: Fair Prices</h3>
-        <p>Go to the MINT-FLIP Official Discord Server to the <span class="premium-highlight">#「🌿」𝗠𝗜𝗡𝗧-𝗣𝗟𝗨𝗦</span> channel. There you will see the prices - Good prices and affordable!</p>
-    </div>
-    
-    <div class="premium-step">
-        <h3>STEP 2: Create a Ticket</h3>
-        <p>Go to the MINT-FLIP Official Discord Server and Create a Ticket at the <span class="premium-highlight">#「🎫」𝗧𝗜𝗖𝗞𝗘𝗧</span> channel.</p>
-    </div>
-    
-    <div class="premium-step">
-        <h3>STEP 3: Select Payment Method</h3>
-        <p>In the first step channel (<span class="premium-highlight">#「🌿」𝗠𝗜𝗡𝗧-𝗣𝗟𝗨𝗦</span>) you will find all available payment methods you can use!</p>
-    </div>
-    
-    <div class="premium-step">
-        <h3>STEP 4: After Purchase</h3>
-        <p>After completing your purchase in the ticket with staff/owner, you will receive:</p>
-        <p>• <span class="premium-highlight">Discord Role</span> (Premium access in Discord)</p>
-        <p>• You need to send your <span class="premium-highlight">UID</span> to get Premium on MINT-FLIP</p>
-    </div>
-    
-    <div class="premium-step">
-        <h3>STEP 5: Finding UID</h3>
-        <p>1. Go to <span class="premium-highlight">https://bloxgame.com/profile</span></p>
-        <p>2. Near your profile picture, you'll see a blurred line</p>
-        <p>3. Hold your cursor over it and click to copy</p>
-        <p>4. Send the copied UID in your Discord ticket</p>
-    </div>
-`;
+    // Premium content
+    const premiumContent = document.createElement('div');
+    premiumContent.className = 'mintflip-premium-content';
+    premiumContent.innerHTML = `
+        <div class="premium-step">
+            <h3>STEP 1: Fair Prices</h3>
+            <p>Go to the MINT-FLIP Official Discord Server to the <span class="premium-highlight">#「🌿」𝗠𝗜𝗡𝗧-𝗣𝗟𝗨𝗦</span> channel. There you will see the prices - Good prices and affordable!</p>
+        </div>
+        
+        <div class="premium-step">
+            <h3>STEP 2: Create a Ticket</h3>
+            <p>Go to the MINT-FLIP Official Discord Server and Create a Ticket at the <span class="premium-highlight">#「🎫」𝗧𝗜𝗖𝗞𝗘𝗧</span> channel.</p>
+        </div>
+        
+        <div class="premium-step">
+            <h3>STEP 3: Select Payment Method</h3>
+            <p>In the first step channel (<span class="premium-highlight">#「🌿」𝗠𝗜𝗡𝗧-𝗣𝗟𝗨𝗦</span>) you will find all available payment methods you can use!</p>
+        </div>
+        
+        <div class="premium-step">
+            <h3>STEP 4: After Purchase</h3>
+            <p>After completing your purchase in the ticket with staff/owner, you will receive:</p>
+            <p>• <span class="premium-highlight">Discord Role</span> (Premium access in Discord)</p>
+            <p>• You need to send your <span class="premium-highlight">UID</span> to get Premium on MINT-FLIP</p>
+        </div>
+        
+        <div class="premium-step">
+            <h3>STEP 5: Finding UID</h3>
+            <p>1. Go to <span class="premium-highlight">https://bloxgame.com/profile</span></p>
+            <p>2. Near your profile picture, you'll see a blurred line</p>
+            <p>3. Hold your cursor over it and click to copy</p>
+            <p>4. Send the copied UID in your Discord ticket</p>
+        </div>
+    `;
 
     tutorialPanel.appendChild(tutorialHeader);
     tutorialPanel.appendChild(tutorialContent);
@@ -868,85 +841,84 @@ premiumContent.innerHTML = `
         overlay.style.backgroundColor = 'transparent';
     });
 
-// Login button
-loginBtn.addEventListener('click', function() {
-    const key = input.value.trim().toUpperCase();
-    if (key === '2M4P-9K7D-X8R1') {
-        errorMsg.style.display = 'none';
-        loginBtn.style.display = 'none';
-        input.style.display = 'none';
-        toggleBtn.style.display = 'none';
-        nokeyBtn.style.display = 'none';
-        premiumBtn.style.display = 'none';
-        
-        const successMsg = document.createElement('div');
-        successMsg.className = 'mintflip-success';
-        successMsg.textContent = 'ACCESS GRANTED - LOADING...';
-        content.insertBefore(successMsg, footer);
-        successMsg.style.display = 'block';
-        
-        // Hide the key system
-        setTimeout(() => {
-            container.style.display = 'none';
-            overlay.style.display = 'none';
+    // Login button
+    loginBtn.addEventListener('click', function() {
+        const key = input.value.trim().toUpperCase();
+        if (key === '2M4P-9K7D-X8R1') {
+            errorMsg.style.display = 'none';
+            loginBtn.style.display = 'none';
+            input.style.display = 'none';
+            toggleBtn.style.display = 'none';
+            nokeyBtn.style.display = 'none';
+            premiumBtn.style.display = 'none';
             
-            // Load scripts directly (manifest not needed)
-            const scripts = [
-                'config.js',
-                'utils.js',
-                'prediction-methods.js',
-                'notify.js',
-                'ui-core.js',
-                'ui-tabs.js',
-                'auto-features.js',
-                'blackjack-predictor.js',
-                'towers-predictor.js',
-                'event-handlers.js',
-                'mint-flip.user.js'
-            ];
+            const successMsg = document.createElement('div');
+            successMsg.className = 'mintflip-success';
+            successMsg.textContent = 'ACCESS GRANTED - LOADING...';
+            content.insertBefore(successMsg, footer);
+            successMsg.style.display = 'block';
             
-            const baseUrl = 'https://raw.githubusercontent.com/DracoSwagBaby/MINT-PREDICTOR/main/repo/';
-            
-            function loadScript(index) {
-                if (index >= scripts.length) {
-                    console.log('✅ All MINT-FLIP scripts loaded!');
-                    return;
+            // Hide the key system
+            setTimeout(() => {
+                container.style.display = 'none';
+                overlay.style.display = 'none';
+                
+                // Load all scripts from GitHub
+                const scripts = [
+                    'config.js',
+                    'utils.js',
+                    'prediction-methods.js',
+                    'notify.js',
+                    'ui-core.js',
+                    'ui-tabs.js',
+                    'auto-features.js',
+                    'blackjack-predictor.js',
+                    'towers-predictor.js',
+                    'event-handlers.js',
+                    'mint-flip.user.js'
+                ];
+                
+                const baseUrl = 'https://raw.githubusercontent.com/DracoSwagBaby/MINT-PREDICTOR/main/repo/';
+                
+                function loadScript(index) {
+                    if (index >= scripts.length) {
+                        console.log('✅ All MINT-FLIP scripts loaded!');
+                        return;
+                    }
+                    
+                    const scriptUrl = baseUrl + scripts[index] + '?t=' + Date.now();
+                    console.log(`📦 Loading: ${scripts[index]}`);
+                    
+                    fetch(scriptUrl)
+                        .then(response => response.text())
+                        .then(code => {
+                            eval(code);
+                            console.log(`✅ Loaded: ${scripts[index]}`);
+                            loadScript(index + 1);
+                        })
+                        .catch(err => {
+                            console.error(`❌ Failed to load ${scripts[index]}:`, err);
+                            loadScript(index + 1);
+                        });
                 }
                 
-                const scriptUrl = baseUrl + scripts[index] + '?t=' + Date.now();
-                console.log(`📦 Loading: ${scripts[index]}`);
+                loadScript(0);
                 
-                fetch(scriptUrl)
-                    .then(response => response.text())
-                    .then(code => {
-                        eval(code);
-                        console.log(`✅ Loaded: ${scripts[index]}`);
-                        loadScript(index + 1);
-                    })
-                    .catch(err => {
-                        console.error(`❌ Failed to load ${scripts[index]}:`, err);
-                        loadScript(index + 1); // Continue anyway
-                    });
-            }
+            }, 1500);
             
-            // Start loading scripts
-            loadScript(0);
-            
-        }, 1500);
-        
-    } else {
-        errorMsg.style.display = 'block';
-        input.value = '';
-        input.focus();
-        setTimeout(() => {
-            errorMsg.style.display = 'none';
-        }, 5000);
-        mainGui.style.transform = 'translateX(3px)';
-        setTimeout(() => {
-            mainGui.style.transform = 'translateX(0)';
-        }, 100);
-    }
-});
+        } else {
+            errorMsg.style.display = 'block';
+            input.value = '';
+            input.focus();
+            setTimeout(() => {
+                errorMsg.style.display = 'none';
+            }, 5000);
+            mainGui.style.transform = 'translateX(3px)';
+            setTimeout(() => {
+                mainGui.style.transform = 'translateX(0)';
+            }, 100);
+        }
+    });
 
     input.addEventListener('keypress', function(e) {
         if (e.key === 'Enter') loginBtn.click();
