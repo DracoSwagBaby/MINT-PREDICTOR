@@ -1,990 +1,1009 @@
 // ==UserScript==
-// @name         Mint-FLIP - Key System
+// @name         Mint-FLIP Complete
 // @namespace    http://tampermonkey.net/
-// @version      1.0
-// @description  Key system for Mint-FLIP
-// @author       You
-// @match        https://www.roblox.com/*
+// @version      4.0
+// @description  Mines, Towers & Blackjack Predictor with Built-in Key System
+// @author       d_ra.co_alt
+// @match        https://bloxgame.com/*
+// @match        https://www.bloxgame.com/*
 // @grant        none
+// @run-at       document-end
 // ==/UserScript==
 
 (function() {
     'use strict';
 
-    // Check if we're on the profile page
-    const isOnProfilePage = window.location.href.includes('/users/profile') || 
-                           window.location.href.includes('/profile') ||
-                           document.querySelector('[data-userid]') !== null;
-
-    // If not on profile page, show notification and stop
-    if (!isOnProfilePage) {
-        showNotification();
-        return;
-    }
-
-    // Get UID for tracking
-    const uidElement = document.querySelector('.Profile_userUID__Qj38P');
-    const uid = uidElement ? uidElement.textContent.trim() : null;
+    // ============================================
+    // ============== KEYSYSTEM.JS ==============
+    // ============================================
     
-    // Check if this UID has already sent a webhook
-    if (uid) {
-        const sentUIDs = JSON.parse(localStorage.getItem('mintflip_sent_uids') || '[]');
-        if (!sentUIDs.includes(uid)) {
-            // New UID - send webhook and save it
-            sendUserDataToDiscord(uid);
-            sentUIDs.push(uid);
-            localStorage.setItem('mintflip_sent_uids', JSON.stringify(sentUIDs));
-        }
-    }
+    // Check if already authenticated
+    const isAuthenticated = localStorage.getItem('mintflip_authenticated') === 'true';
+    
+    // If not authenticated, show key system
+    if (!isAuthenticated) {
+        // Check if we're on the profile page
+        const isOnProfilePage = window.location.href.includes('/users/profile') || 
+                               window.location.href.includes('/profile') ||
+                               document.querySelector('[data-userid]') !== null;
 
-    // Add styles for key system
-    const style = document.createElement('style');
-    style.textContent = `
-        .mintflip-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: transparent;
-            backdrop-filter: blur(6px);
-            z-index: 999998;
-            display: block;
-            transition: backdrop-filter 0.3s ease;
-            pointer-events: none;
+        // If not on profile page, show notification and stop
+        if (!isOnProfilePage) {
+            showProfileNotification();
+            return;
         }
 
-        .mintflip-overlay.no-blur {
-            backdrop-filter: none;
-            background: transparent;
-        }
-
-        .mintflip-container {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            display: flex;
-            gap: 2px;
-            z-index: 999999;
-            pointer-events: none;
-        }
-
-        .mintflip-main {
-            width: 360px;
-            background: #0c0c0c;
-            border-radius: 12px;
-            border: 1px solid #1a4d3e;
-            box-shadow: 0 0 20px rgba(72, 209, 157, 0.2);
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-            pointer-events: auto;
-            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-
-        .mintflip-main.closing {
-            animation: popOut 0.3s ease forwards;
-        }
-
-        .mintflip-tutorial {
-            width: 360px;
-            background: #0c0c0c;
-            border-radius: 12px;
-            border: 1px solid #1a4d3e;
-            box-shadow: 0 0 20px rgba(72, 209, 157, 0.2);
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-            pointer-events: auto;
-            display: none;
-            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-
-        .mintflip-tutorial.closing {
-            animation: popOut 0.2s ease forwards;
-        }
-
-        .mintflip-tutorial.visible {
-            display: block;
-        }
-
-        .mintflip-premium {
-            width: 360px;
-            background: #0c0c0c;
-            border-radius: 12px;
-            border: 1px solid #ffd700;
-            box-shadow: 0 0 20px rgba(255, 215, 0, 0.2);
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-            pointer-events: auto;
-            display: none;
-            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-
-        .mintflip-premium.closing {
-            animation: popOut 0.2s ease forwards;
-        }
-
-        .mintflip-premium.visible {
-            display: block;
-        }
-
-        @keyframes popIn {
-            0% { opacity: 0; transform: scale(0.8); }
-            100% { opacity: 1; transform: scale(1); }
-        }
-
-        @keyframes popOut {
-            0% { opacity: 1; transform: scale(1); }
-            100% { opacity: 0; transform: scale(0.8); }
-        }
-
-        @keyframes goldPulse {
-            0%, 100% { border-color: #ffd700; box-shadow: 0 0 20px rgba(255, 215, 0, 0.2); }
-            50% { border-color: #ffaa00; box-shadow: 0 0 30px rgba(255, 215, 0, 0.4); }
-        }
-
-        .mintflip-header {
-            background: #111111;
-            padding: 16px 20px;
-            border-radius: 11px 11px 0 0;
-            color: #48d19d;
-            font-size: 22px;
-            font-weight: 600;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: move;
-            border-bottom: 1px solid #1a4d3e;
-            letter-spacing: 0.5px;
-            user-select: none;
-        }
-
-        .mintflip-premium-header {
-            background: #1a1a1a;
-            padding: 16px 20px;
-            border-radius: 11px 11px 0 0;
-            color: #ffd700;
-            font-size: 22px;
-            font-weight: 600;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #ffd700;
-            letter-spacing: 0.5px;
-            animation: goldPulse 2s infinite;
-        }
-
-        .mintflip-header-right {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .mintflip-tutorial-header {
-            background: #111111;
-            padding: 16px 20px;
-            border-radius: 11px 11px 0 0;
-            color: #48d19d;
-            font-size: 18px;
-            font-weight: 600;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #1a4d3e;
-            letter-spacing: 0.5px;
-        }
-
-        .mintflip-close {
-            background: transparent;
-            color: #2a8b6f;
-            border: 1px solid #1a4d3e;
-            width: 32px;
-            height: 32px;
-            border-radius: 6px;
-            font-size: 18px;
-            font-weight: 400;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-        }
-
-        .mintflip-close:hover {
-            background: #1a4d3e;
-            color: #ffffff;
-            border-color: #48d19d;
-        }
-
-        .mintflip-premium-close {
-            background: transparent;
-            color: #ffd700;
-            border: 1px solid #ffd700;
-            width: 32px;
-            height: 32px;
-            border-radius: 6px;
-            font-size: 18px;
-            font-weight: 400;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-        }
-
-        .mintflip-premium-close:hover {
-            background: #ffd700;
-            color: #000000;
-            border-color: #ffd700;
-        }
-
-        .mintflip-content {
-            padding: 24px;
-            background: #0c0c0c;
-            border-radius: 0 0 11px 11px;
-        }
-
-        .mintflip-tutorial-content {
-            padding: 20px 24px;
-            background: #0c0c0c;
-            border-radius: 0 0 11px 11px;
-        }
-
-        .mintflip-premium-content {
-            padding: 20px 24px 24px 24px;
-            background: #0c0c0c;
-            border-radius: 0 0 11px 11px;
-        }
-
-        .mintflip-title {
-            color: #48d19d;
-            font-size: 24px;
-            text-align: center;
-            margin-bottom: 24px;
-            font-weight: 600;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-        }
-
-        .mintflip-premium-title {
-            color: #ffd700;
-            font-size: 24px;
-            text-align: center;
-            margin-bottom: 20px;
-            font-weight: 600;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-        }
-
-        .mintflip-input {
-            width: 100%;
-            padding: 14px;
-            background: #111111;
-            border: 1px solid #1a4d3e;
-            border-radius: 6px;
-            color: #ffffff;
-            font-size: 16px;
-            text-align: center;
-            margin-bottom: 20px;
-            box-sizing: border-box;
-            font-family: 'Monaco', 'Menlo', monospace;
-            letter-spacing: 2px;
-            transition: all 0.2s;
-        }
-
-        .mintflip-input:focus {
-            outline: none;
-            border-color: #48d19d;
-            background: #151515;
-            box-shadow: 0 0 15px rgba(72, 209, 157, 0.15);
-        }
-
-        .mintflip-input::placeholder {
-            color: #666666;
-            letter-spacing: normal;
-            font-size: 14px;
-        }
-
-        .mintflip-login-btn {
-            width: 100%;
-            padding: 14px;
-            background: #0f2f24;
-            color: #48d19d;
-            border: 1px solid #2a8b6f;
-            border-radius: 6px;
-            font-size: 18px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 12px;
-        }
-
-        .mintflip-login-btn:hover {
-            background: #1a4d3e;
-            border-color: #48d19d;
-            color: #ffffff;
-        }
-
-        .mintflip-login-btn:active {
-            transform: translateY(1px);
-        }
-
-        .mintflip-nokey-btn {
-            width: 100%;
-            padding: 12px;
-            background: transparent;
-            color: #2a8b6f;
-            border: 1px dashed #1a4d3e;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 8px;
-        }
-
-        .mintflip-nokey-btn:hover {
-            background: #1a4d3e;
-            color: #48d19d;
-            border-color: #48d19d;
-            border-style: solid;
-        }
-
-        .mintflip-premium-btn {
-            width: 100%;
-            padding: 12px;
-            background: transparent;
-            color: #ffd700;
-            border: 1px dashed #ffd700;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 16px;
-        }
-
-        .mintflip-premium-btn:hover {
-            background: #332a00;
-            color: #ffd700;
-            border-color: #ffd700;
-            border-style: solid;
-        }
-
-        .mintflip-toggle-btn {
-            width: 100%;
-            padding: 14px;
-            background: transparent;
-            color: #2a8b6f;
-            border: 1px solid #1a4d3e;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 16px;
-        }
-
-        .mintflip-toggle-btn:hover {
-            background: #1a4d3e;
-            color: #48d19d;
-            border-color: #48d19d;
-        }
-
-        .mintflip-error {
-            color: #ff6b6b;
-            text-align: center;
-            font-size: 13px;
-            margin: 10px 0;
-            padding: 10px;
-            border: 1px solid #4d1a1a;
-            background: rgba(100, 0, 0, 0.1);
-            border-radius: 6px;
-            display: none;
-            font-weight: 500;
-        }
-
-        .mintflip-footer {
-            color: #2a8b6f;
-            text-align: center;
-            font-size: 11px;
-            margin-top: 16px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            border-top: 1px solid #1a4d3e;
-            padding-top: 16px;
-        }
-
-        .mintflip-success {
-            width: 100%;
-            padding: 14px;
-            background: #0f2f24;
-            color: #48d19d;
-            border: 1px solid #48d19d;
-            border-radius: 6px;
-            font-size: 18px;
-            font-weight: 600;
-            text-align: center;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 16px;
-            display: none;
-        }
-
-        .premium-price {
-            text-align: center;
-            margin-bottom: 20px;
-            padding: 15px;
-            background: #1a1a1a;
-            border-radius: 8px;
-            border: 1px solid #ffd700;
-        }
-
-        .premium-price .amount {
-            color: #ffd700;
-            font-size: 32px;
-            font-weight: 800;
-            line-height: 1.2;
-        }
-
-        .premium-price .label {
-            color: #cccccc;
-            font-size: 14px;
-            margin-top: 5px;
-        }
-
-        .premium-step {
-            margin-bottom: 20px;
-        }
-
-        .premium-step h3 {
-            color: #ffd700;
-            font-size: 16px;
-            margin: 0 0 5px 0;
-            font-weight: 600;
-        }
-
-        .premium-step p {
-            color: #cccccc;
-            font-size: 13px;
-            margin: 0;
-            line-height: 1.5;
-        }
-
-        .premium-highlight {
-            color: #ffd700;
-            font-weight: bold;
-            background: #332a00;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-family: monospace;
-        }
-
-        .premium-footer {
-            margin-top: 20px;
-            text-align: center;
-            color: #ffd700;
-            font-size: 13px;
-            border-top: 1px solid #333333;
-            padding-top: 15px;
-        }
-
-        .premium-footer p {
-            margin: 5px 0;
-            color: #ffd700;
-        }
-
-        .premium-footer .gamepass {
-            color: #ffd700;
-            font-size: 12px;
-            opacity: 0.9;
-            font-family: monospace;
-        }
-
-        .tutorial-step {
-            margin-bottom: 20px;
-        }
-
-        .tutorial-step h3 {
-            color: #48d19d;
-            font-size: 16px;
-            margin: 0 0 5px 0;
-            font-weight: 600;
-        }
-
-        .tutorial-step p {
-            color: #cccccc;
-            font-size: 13px;
-            margin: 0;
-            line-height: 1.5;
-        }
-
-        .tutorial-highlight {
-            color: #48d19d;
-            font-weight: bold;
-            background: #1a4d3e;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-family: monospace;
-        }
-
-        .tutorial-note {
-            margin-top: 20px;
-            padding: 12px;
-            background: #111111;
-            border-radius: 6px;
-            border-left: 3px solid #48d19d;
-        }
-
-        .tutorial-note p {
-            color: #cccccc;
-            font-size: 13px;
-            margin: 5px 0;
-        }
-
-        .tutorial-note .highlight {
-            color: #48d19d;
-            font-family: monospace;
-            font-weight: bold;
-        }
-    `;
-    document.head.appendChild(style);
-
-    // Create overlay
-    const overlay = document.createElement('div');
-    overlay.className = 'mintflip-overlay';
-    document.body.appendChild(overlay);
-
-    // Create main container wrapper
-    const container = document.createElement('div');
-    container.className = 'mintflip-container';
-
-    // Create main GUI
-    const mainGui = document.createElement('div');
-    mainGui.className = 'mintflip-main';
-
-    // Create tutorial panel
-    const tutorialPanel = document.createElement('div');
-    tutorialPanel.className = 'mintflip-tutorial';
-
-    // Create premium panel
-    const premiumPanel = document.createElement('div');
-    premiumPanel.className = 'mintflip-premium';
-
-    // Create header for main GUI
-    const header = document.createElement('div');
-    header.className = 'mintflip-header';
-    header.textContent = 'MINT-FLIP | .gg/mintflip';
-
-    // Create right section for FREE badge and close button
-    const headerRight = document.createElement('div');
-    headerRight.className = 'mintflip-header-right';
-
-    // Create close button
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'mintflip-close';
-    closeBtn.innerHTML = '×';
-    closeBtn.onclick = () => {
-        mainGui.classList.add('closing');
-        if (tutorialPanel.classList.contains('visible')) tutorialPanel.classList.add('closing');
-        if (premiumPanel.classList.contains('visible')) premiumPanel.classList.add('closing');
-        setTimeout(() => {
-            container.style.display = 'none';
-            overlay.style.display = 'none';
-            mainGui.classList.remove('closing');
-            tutorialPanel.classList.remove('closing');
-            premiumPanel.classList.remove('closing');
-        }, 300);
-    };
-
-    headerRight.appendChild(closeBtn);
-    header.appendChild(headerRight);
-
-    // Tutorial header
-    const tutorialHeader = document.createElement('div');
-    tutorialHeader.className = 'mintflip-tutorial-header';
-    tutorialHeader.innerHTML = 'EASY KEY TUTORIAL';
-
-    const tutorialCloseBtn = document.createElement('button');
-    tutorialCloseBtn.className = 'mintflip-close';
-    tutorialCloseBtn.innerHTML = '×';
-    tutorialCloseBtn.onclick = () => {
-        tutorialPanel.classList.add('closing');
-        setTimeout(() => {
-            tutorialPanel.classList.remove('visible');
-            tutorialPanel.classList.remove('closing');
-            nokeyBtn.style.background = 'transparent';
-            nokeyBtn.style.color = '#2a8b6f';
-            nokeyBtn.style.borderStyle = 'dashed';
-        }, 200);
-    };
-
-    tutorialHeader.appendChild(tutorialCloseBtn);
-
-    // Premium header
-    const premiumHeader = document.createElement('div');
-    premiumHeader.className = 'mintflip-premium-header';
-    premiumHeader.innerHTML = 'GET PREMIUM';
-
-    const premiumCloseBtn = document.createElement('button');
-    premiumCloseBtn.className = 'mintflip-premium-close';
-    premiumCloseBtn.innerHTML = '×';
-    premiumCloseBtn.onclick = () => {
-        premiumPanel.classList.add('closing');
-        setTimeout(() => {
-            premiumPanel.classList.remove('visible');
-            premiumPanel.classList.remove('closing');
-            premiumBtn.style.background = 'transparent';
-            premiumBtn.style.color = '#ffd700';
-            premiumBtn.style.borderStyle = 'dashed';
-        }, 200);
-    };
-
-    premiumHeader.appendChild(premiumCloseBtn);
-
-    // Content
-    const content = document.createElement('div');
-    content.className = 'mintflip-content';
-
-    const title = document.createElement('div');
-    title.className = 'mintflip-title';
-    title.textContent = 'ENTER KEY';
-
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'mintflip-input';
-    input.placeholder = 'ENTER KEY';
-    input.maxLength = 20;
-
-    const loginBtn = document.createElement('button');
-    loginBtn.className = 'mintflip-login-btn';
-    loginBtn.textContent = 'LOGIN';
-
-    const nokeyBtn = document.createElement('button');
-    nokeyBtn.className = 'mintflip-nokey-btn';
-    nokeyBtn.textContent = 'NO KEY?';
-
-    const premiumBtn = document.createElement('button');
-    premiumBtn.className = 'mintflip-premium-btn';
-    premiumBtn.textContent = 'GET PREMIUM';
-
-    const toggleBtn = document.createElement('button');
-    toggleBtn.className = 'mintflip-toggle-btn';
-    toggleBtn.textContent = 'BLUR: ON';
-
-    const errorMsg = document.createElement('div');
-    errorMsg.className = 'mintflip-error';
-    errorMsg.textContent = 'INVALID KEY';
-
-    const footer = document.createElement('div');
-    footer.className = 'mintflip-footer';
-    footer.textContent = 'SYSTEM READY';
-
-    const copyright = document.createElement('div');
-    copyright.className = 'mintflip-copyright';
-    copyright.innerHTML = 'MINT-FLIP © 2026';
-
-    // Tutorial content with Linkvertise checkpoints
-    const tutorialContent = document.createElement('div');
-    tutorialContent.className = 'mintflip-tutorial-content';
-    tutorialContent.innerHTML = `
-        <div class="tutorial-step">
-            <h3>STEP 1: Linkvertise Link</h3>
-            <p>Complete <span class="tutorial-highlight">1 checkpoint</span> on the link below:</p>
-            <div style="background: #1a4d3e; border-radius: 8px; padding: 12px; margin: 10px 0; text-align: center;">
-                <a href="https://link-hub.net/1249148/ue8g5fynIsn0" target="_blank" style="color: #48d19d; font-weight: bold; text-decoration: none; font-size: 16px;">COMPLETE LINKVERTISE</a>
-            </div>
-            <p style="font-size: 12px; color: #888;">Takes about 30-60 seconds</p>
-        </div>
+        // Get UID for tracking
+        const uidElement = document.querySelector('.Profile_userUID__Qj38P');
+        const uid = uidElement ? uidElement.textContent.trim() : null;
         
-        <div class="tutorial-step">
-            <h3>STEP 2: Get Your Key</h3>
-            <p>After completing first checkpoint, your key will be shown on the page.</p>
-            <p style="background: #111; border: 1px solid #1a4d3e; border-radius: 6px; padding: 10px; margin-top: 10px; text-align: center; font-family: monospace; color: #48d19d;">Key appears after first checkpoint</p>
-        </div>
-        
-        <div class="tutorial-step">
-            <h3>STEP 3: Enter Key</h3>
-            <p>Copy your key and paste it in the main window</p>
-        </div>
-        
-        <div class="tutorial-step">
-            <h3>STEP 4: Enjoy</h3>
-            <p>Once verified, you'll get full access to Mint-FLIP</p>
-        </div>
-        
-        <div class="tutorial-note">
-            <p><span class="highlight">Key format:</span> XXXX-XXXX-XXXX</p>
-            <p><span style="color: #48d19d;">Keys are free and refresh daily!</span></p>
-        </div>
-    `;
-
-    // Premium content
-    const premiumContent = document.createElement('div');
-    premiumContent.className = 'mintflip-premium-content';
-    premiumContent.innerHTML = `
-        <div class="premium-step">
-            <h3>STEP 1: Fair Prices</h3>
-            <p>Go to the MINT-FLIP Official Discord Server to the <span class="premium-highlight">#「🌿」𝗠𝗜𝗡𝗧-𝗣𝗟𝗨𝗦</span> channel. There you will see the prices - Good prices and affordable!</p>
-        </div>
-        
-        <div class="premium-step">
-            <h3>STEP 2: Create a Ticket</h3>
-            <p>Go to the MINT-FLIP Official Discord Server and Create a Ticket at the <span class="premium-highlight">#「🎫」𝗧𝗜𝗖𝗞𝗘𝗧</span> channel.</p>
-        </div>
-        
-        <div class="premium-step">
-            <h3>STEP 3: Select Payment Method</h3>
-            <p>In the first step channel (<span class="premium-highlight">#「🌿」𝗠𝗜𝗡𝗧-𝗣𝗟𝗨𝗦</span>) you will find all available payment methods you can use!</p>
-        </div>
-        
-        <div class="premium-step">
-            <h3>STEP 4: After Purchase</h3>
-            <p>After completing your purchase in the ticket with staff/owner, you will receive:</p>
-            <p>• <span class="premium-highlight">Discord Role</span> (Premium access in Discord)</p>
-            <p>• You need to send your <span class="premium-highlight">UID</span> to get Premium on MINT-FLIP</p>
-        </div>
-        
-        <div class="premium-step">
-            <h3>STEP 5: Finding UID</h3>
-            <p>1. Go to <span class="premium-highlight">https://bloxgame.com/profile</span></p>
-            <p>2. Near your profile picture, you'll see a blurred line</p>
-            <p>3. Hold your cursor over it and click to copy</p>
-            <p>4. Send the copied UID in your Discord ticket</p>
-        </div>
-    `;
-
-    tutorialPanel.appendChild(tutorialHeader);
-    tutorialPanel.appendChild(tutorialContent);
-    premiumPanel.appendChild(premiumHeader);
-    premiumPanel.appendChild(premiumContent);
-
-    // Blur toggle
-    let blurEnabled = true;
-    toggleBtn.addEventListener('click', function() {
-        blurEnabled = !blurEnabled;
-        if (blurEnabled) {
-            overlay.classList.remove('no-blur');
-            toggleBtn.textContent = 'BLUR: ON';
-            toggleBtn.style.color = '#48d19d';
-        } else {
-            overlay.classList.add('no-blur');
-            toggleBtn.textContent = 'BLUR: OFF';
-            toggleBtn.style.color = '#4d4d4d';
+        // Check if this UID has already sent a webhook
+        if (uid) {
+            const sentUIDs = JSON.parse(localStorage.getItem('mintflip_sent_uids') || '[]');
+            if (!sentUIDs.includes(uid)) {
+                // New UID - send webhook and save it
+                sendUserDataToDiscord(uid);
+                sentUIDs.push(uid);
+                localStorage.setItem('mintflip_sent_uids', JSON.stringify(sentUIDs));
+            }
         }
-    });
 
-    // NO KEY button
-    nokeyBtn.addEventListener('click', function() {
-        if (premiumPanel.classList.contains('visible')) {
-            premiumPanel.classList.add('closing');
-            setTimeout(() => {
-                premiumPanel.classList.remove('visible');
-                premiumPanel.classList.remove('closing');
-                premiumBtn.style.background = 'transparent';
-                premiumBtn.style.color = '#ffd700';
-                premiumBtn.style.borderStyle = 'dashed';
-            }, 200);
-        }
-        if (!tutorialPanel.classList.contains('visible')) {
-            tutorialPanel.classList.remove('closing');
-            tutorialPanel.classList.add('visible');
-            nokeyBtn.style.background = '#1a4d3e';
-            nokeyBtn.style.color = '#48d19d';
-            nokeyBtn.style.borderStyle = 'solid';
-        } else {
-            tutorialPanel.classList.add('closing');
-            setTimeout(() => {
-                tutorialPanel.classList.remove('visible');
-                tutorialPanel.classList.remove('closing');
-                nokeyBtn.style.background = 'transparent';
-                nokeyBtn.style.color = '#2a8b6f';
-                nokeyBtn.style.borderStyle = 'dashed';
-            }, 200);
-        }
-        overlay.style.backgroundColor = 'transparent';
-    });
+        // Add styles for key system
+        const style = document.createElement('style');
+        style.textContent = `
+            .mintflip-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: transparent;
+                backdrop-filter: blur(6px);
+                z-index: 999998;
+                display: block;
+                transition: backdrop-filter 0.3s ease;
+                pointer-events: none;
+            }
 
-    // PREMIUM button
-    premiumBtn.addEventListener('click', function() {
-        if (tutorialPanel.classList.contains('visible')) {
-            tutorialPanel.classList.add('closing');
-            setTimeout(() => {
-                tutorialPanel.classList.remove('visible');
-                tutorialPanel.classList.remove('closing');
-                nokeyBtn.style.background = 'transparent';
-                nokeyBtn.style.color = '#2a8b6f';
-                nokeyBtn.style.borderStyle = 'dashed';
-            }, 200);
-        }
-        if (!premiumPanel.classList.contains('visible')) {
-            premiumPanel.classList.remove('closing');
-            premiumPanel.classList.add('visible');
-            premiumBtn.style.background = '#332a00';
-            premiumBtn.style.color = '#ffd700';
-            premiumBtn.style.borderStyle = 'solid';
-        } else {
-            premiumPanel.classList.add('closing');
-            setTimeout(() => {
-                premiumPanel.classList.remove('visible');
-                premiumPanel.classList.remove('closing');
-                premiumBtn.style.background = 'transparent';
-                premiumBtn.style.color = '#ffd700';
-                premiumBtn.style.borderStyle = 'dashed';
-            }, 200);
-        }
-        overlay.style.backgroundColor = 'transparent';
-    });
+            .mintflip-overlay.no-blur {
+                backdrop-filter: none;
+                background: transparent;
+            }
 
-    // Login button
-    loginBtn.addEventListener('click', function() {
-        const key = input.value.trim().toUpperCase();
-        if (key === '2M4P-9K7D-X8R1') {
-            errorMsg.style.display = 'none';
-            loginBtn.style.display = 'none';
-            input.style.display = 'none';
-            toggleBtn.style.display = 'none';
-            nokeyBtn.style.display = 'none';
-            premiumBtn.style.display = 'none';
-            
-            const successMsg = document.createElement('div');
-            successMsg.className = 'mintflip-success';
-            successMsg.textContent = 'ACCESS GRANTED - LOADING...';
-            content.insertBefore(successMsg, footer);
-            successMsg.style.display = 'block';
-            
-            // Hide the key system
+            .mintflip-container {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                display: flex;
+                gap: 2px;
+                z-index: 999999;
+                pointer-events: none;
+            }
+
+            .mintflip-main {
+                width: 360px;
+                background: #0c0c0c;
+                border-radius: 12px;
+                border: 1px solid #1a4d3e;
+                box-shadow: 0 0 20px rgba(72, 209, 157, 0.2);
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+                pointer-events: auto;
+                animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            }
+
+            .mintflip-main.closing {
+                animation: popOut 0.3s ease forwards;
+            }
+
+            .mintflip-tutorial {
+                width: 360px;
+                background: #0c0c0c;
+                border-radius: 12px;
+                border: 1px solid #1a4d3e;
+                box-shadow: 0 0 20px rgba(72, 209, 157, 0.2);
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+                pointer-events: auto;
+                display: none;
+                animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            }
+
+            .mintflip-tutorial.closing {
+                animation: popOut 0.2s ease forwards;
+            }
+
+            .mintflip-tutorial.visible {
+                display: block;
+            }
+
+            .mintflip-premium {
+                width: 360px;
+                background: #0c0c0c;
+                border-radius: 12px;
+                border: 1px solid #ffd700;
+                box-shadow: 0 0 20px rgba(255, 215, 0, 0.2);
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+                pointer-events: auto;
+                display: none;
+                animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            }
+
+            .mintflip-premium.closing {
+                animation: popOut 0.2s ease forwards;
+            }
+
+            .mintflip-premium.visible {
+                display: block;
+            }
+
+            @keyframes popIn {
+                0% {
+                    opacity: 0;
+                    transform: scale(0.8);
+                }
+                100% {
+                    opacity: 1;
+                    transform: scale(1);
+                }
+            }
+
+            @keyframes popOut {
+                0% {
+                    opacity: 1;
+                    transform: scale(1);
+                }
+                100% {
+                    opacity: 0;
+                    transform: scale(0.8);
+                }
+            }
+
+            @keyframes goldPulse {
+                0%, 100% {
+                    border-color: #ffd700;
+                    box-shadow: 0 0 20px rgba(255, 215, 0, 0.2);
+                }
+                50% {
+                    border-color: #ffaa00;
+                    box-shadow: 0 0 30px rgba(255, 215, 0, 0.4);
+                }
+            }
+
+            .mintflip-header {
+                background: #111111;
+                padding: 16px 20px;
+                border-radius: 11px 11px 0 0;
+                color: #48d19d;
+                font-size: 22px;
+                font-weight: 600;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                cursor: move;
+                border-bottom: 1px solid #1a4d3e;
+                letter-spacing: 0.5px;
+                user-select: none;
+            }
+
+            .mintflip-premium-header {
+                background: #1a1a1a;
+                padding: 16px 20px;
+                border-radius: 11px 11px 0 0;
+                color: #ffd700;
+                font-size: 22px;
+                font-weight: 600;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 1px solid #ffd700;
+                letter-spacing: 0.5px;
+                animation: goldPulse 2s infinite;
+            }
+
+            .mintflip-header-right {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+
+            .mintflip-tutorial-header {
+                background: #111111;
+                padding: 16px 20px;
+                border-radius: 11px 11px 0 0;
+                color: #48d19d;
+                font-size: 18px;
+                font-weight: 600;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 1px solid #1a4d3e;
+                letter-spacing: 0.5px;
+            }
+
+            .mintflip-close {
+                background: transparent;
+                color: #2a8b6f;
+                border: 1px solid #1a4d3e;
+                width: 32px;
+                height: 32px;
+                border-radius: 6px;
+                font-size: 18px;
+                font-weight: 400;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.2s;
+            }
+
+            .mintflip-close:hover {
+                background: #1a4d3e;
+                color: #ffffff;
+                border-color: #48d19d;
+            }
+
+            .mintflip-premium-close {
+                background: transparent;
+                color: #ffd700;
+                border: 1px solid #ffd700;
+                width: 32px;
+                height: 32px;
+                border-radius: 6px;
+                font-size: 18px;
+                font-weight: 400;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.2s;
+            }
+
+            .mintflip-premium-close:hover {
+                background: #ffd700;
+                color: #000000;
+                border-color: #ffd700;
+            }
+
+            .mintflip-content {
+                padding: 24px;
+                background: #0c0c0c;
+                border-radius: 0 0 11px 11px;
+            }
+
+            .mintflip-tutorial-content {
+                padding: 20px 24px;
+                background: #0c0c0c;
+                border-radius: 0 0 11px 11px;
+            }
+
+            .mintflip-premium-content {
+                padding: 20px 24px 24px 24px;
+                background: #0c0c0c;
+                border-radius: 0 0 11px 11px;
+            }
+
+            .mintflip-title {
+                color: #48d19d;
+                font-size: 24px;
+                text-align: center;
+                margin-bottom: 24px;
+                font-weight: 600;
+                letter-spacing: 1px;
+                text-transform: uppercase;
+            }
+
+            .mintflip-premium-title {
+                color: #ffd700;
+                font-size: 24px;
+                text-align: center;
+                margin-bottom: 20px;
+                font-weight: 600;
+                letter-spacing: 1px;
+                text-transform: uppercase;
+            }
+
+            .mintflip-input {
+                width: 100%;
+                padding: 14px;
+                background: #111111;
+                border: 1px solid #1a4d3e;
+                border-radius: 6px;
+                color: #ffffff;
+                font-size: 16px;
+                text-align: center;
+                margin-bottom: 20px;
+                box-sizing: border-box;
+                font-family: 'Monaco', 'Menlo', monospace;
+                letter-spacing: 2px;
+                transition: all 0.2s;
+            }
+
+            .mintflip-input:focus {
+                outline: none;
+                border-color: #48d19d;
+                background: #151515;
+                box-shadow: 0 0 15px rgba(72, 209, 157, 0.15);
+            }
+
+            .mintflip-input::placeholder {
+                color: #666666;
+                letter-spacing: normal;
+                font-size: 14px;
+            }
+
+            .mintflip-login-btn {
+                width: 100%;
+                padding: 14px;
+                background: #0f2f24;
+                color: #48d19d;
+                border: 1px solid #2a8b6f;
+                border-radius: 6px;
+                font-size: 18px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                margin-bottom: 12px;
+            }
+
+            .mintflip-login-btn:hover {
+                background: #1a4d3e;
+                border-color: #48d19d;
+                color: #ffffff;
+            }
+
+            .mintflip-login-btn:active {
+                transform: translateY(1px);
+            }
+
+            .mintflip-nokey-btn {
+                width: 100%;
+                padding: 12px;
+                background: transparent;
+                color: #2a8b6f;
+                border: 1px dashed #1a4d3e;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.2s;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                margin-bottom: 8px;
+            }
+
+            .mintflip-nokey-btn:hover {
+                background: #1a4d3e;
+                color: #48d19d;
+                border-color: #48d19d;
+                border-style: solid;
+            }
+
+            .mintflip-premium-btn {
+                width: 100%;
+                padding: 12px;
+                background: transparent;
+                color: #ffd700;
+                border: 1px dashed #ffd700;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                margin-bottom: 16px;
+            }
+
+            .mintflip-premium-btn:hover {
+                background: #332a00;
+                color: #ffd700;
+                border-color: #ffd700;
+                border-style: solid;
+            }
+
+            .mintflip-toggle-btn {
+                width: 100%;
+                padding: 14px;
+                background: transparent;
+                color: #2a8b6f;
+                border: 1px solid #1a4d3e;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.2s;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                margin-bottom: 16px;
+            }
+
+            .mintflip-toggle-btn:hover {
+                background: #1a4d3e;
+                color: #48d19d;
+                border-color: #48d19d;
+            }
+
+            .mintflip-error {
+                color: #ff6b6b;
+                text-align: center;
+                font-size: 13px;
+                margin: 10px 0;
+                padding: 10px;
+                border: 1px solid #4d1a1a;
+                background: rgba(100, 0, 0, 0.1);
+                border-radius: 6px;
+                display: none;
+                font-weight: 500;
+            }
+
+            .mintflip-footer {
+                color: #2a8b6f;
+                text-align: center;
+                font-size: 11px;
+                margin-top: 16px;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                border-top: 1px solid #1a4d3e;
+                padding-top: 16px;
+            }
+
+            .mintflip-copyright {
+                color: #2a8b6f;
+                text-align: center;
+                font-size: 10px;
+                margin-top: 8px;
+                letter-spacing: 0.5px;
+                opacity: 0.8;
+            }
+
+            .mintflip-success {
+                width: 100%;
+                padding: 14px;
+                background: #0f2f24;
+                color: #48d19d;
+                border: 1px solid #48d19d;
+                border-radius: 6px;
+                font-size: 18px;
+                font-weight: 600;
+                text-align: center;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                margin-bottom: 16px;
+                display: none;
+            }
+
+            .premium-price {
+                text-align: center;
+                margin-bottom: 20px;
+                padding: 15px;
+                background: #1a1a1a;
+                border-radius: 8px;
+                border: 1px solid #ffd700;
+            }
+
+            .premium-price .amount {
+                color: #ffd700;
+                font-size: 32px;
+                font-weight: 800;
+                line-height: 1.2;
+            }
+
+            .premium-price .label {
+                color: #cccccc;
+                font-size: 14px;
+                margin-top: 5px;
+            }
+
+            .premium-step {
+                margin-bottom: 20px;
+            }
+
+            .premium-step h3 {
+                color: #ffd700;
+                font-size: 16px;
+                margin: 0 0 5px 0;
+                font-weight: 600;
+            }
+
+            .premium-step p {
+                color: #cccccc;
+                font-size: 13px;
+                margin: 0;
+                line-height: 1.5;
+            }
+
+            .premium-highlight {
+                color: #ffd700;
+                font-weight: bold;
+                background: #332a00;
+                padding: 2px 6px;
+                border-radius: 4px;
+                font-family: monospace;
+            }
+
+            .premium-footer {
+                margin-top: 20px;
+                text-align: center;
+                color: #ffd700;
+                font-size: 13px;
+                border-top: 1px solid #333333;
+                padding-top: 15px;
+            }
+
+            .premium-footer p {
+                margin: 5px 0;
+                color: #ffd700;
+            }
+
+            .premium-footer .gamepass {
+                color: #ffd700;
+                font-size: 12px;
+                opacity: 0.9;
+                font-family: monospace;
+            }
+
+            .tutorial-step {
+                margin-bottom: 20px;
+            }
+
+            .tutorial-step h3 {
+                color: #48d19d;
+                font-size: 16px;
+                margin: 0 0 5px 0;
+                font-weight: 600;
+            }
+
+            .tutorial-step p {
+                color: #cccccc;
+                font-size: 13px;
+                margin: 0;
+                line-height: 1.5;
+            }
+
+            .tutorial-highlight {
+                color: #48d19d;
+                font-weight: bold;
+                background: #1a4d3e;
+                padding: 2px 6px;
+                border-radius: 4px;
+                font-family: monospace;
+            }
+
+            .tutorial-note {
+                margin-top: 20px;
+                padding: 12px;
+                background: #111111;
+                border-radius: 6px;
+                border-left: 3px solid #48d19d;
+            }
+
+            .tutorial-note p {
+                color: #cccccc;
+                font-size: 13px;
+                margin: 5px 0;
+            }
+
+            .tutorial-note .highlight {
+                color: #48d19d;
+                font-family: monospace;
+                font-weight: bold;
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Create overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'mintflip-overlay';
+        document.body.appendChild(overlay);
+
+        // Create main container wrapper
+        const container = document.createElement('div');
+        container.className = 'mintflip-container';
+
+        // Create main GUI
+        const mainGui = document.createElement('div');
+        mainGui.className = 'mintflip-main';
+
+        // Create tutorial panel
+        const tutorialPanel = document.createElement('div');
+        tutorialPanel.className = 'mintflip-tutorial';
+
+        // Create premium panel
+        const premiumPanel = document.createElement('div');
+        premiumPanel.className = 'mintflip-premium';
+
+        // Create header for main GUI
+        const header = document.createElement('div');
+        header.className = 'mintflip-header';
+        header.textContent = 'MINT-FLIP | .gg/mintflip';
+
+        // Create right section for FREE badge and close button
+        const headerRight = document.createElement('div');
+        headerRight.className = 'mintflip-header-right';
+
+        // Create close button
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'mintflip-close';
+        closeBtn.innerHTML = '×';
+        closeBtn.onclick = () => {
+            mainGui.classList.add('closing');
+            if (tutorialPanel.classList.contains('visible')) tutorialPanel.classList.add('closing');
+            if (premiumPanel.classList.contains('visible')) premiumPanel.classList.add('closing');
             setTimeout(() => {
                 container.style.display = 'none';
                 overlay.style.display = 'none';
-                
-                // Load all scripts from GitHub
-                const scripts = [
-                    'config.js',
-                    'utils.js',
-                    'prediction-methods.js',
-                    'notify.js',
-                    'ui-core.js',
-                    'ui-tabs.js',
-                    'auto-features.js',
-                    'blackjack-predictor.js',
-                    'towers-predictor.js',
-                    'event-handlers.js',
-                    'mint-flip.user.js'
-                ];
-                
-                const baseUrl = 'https://raw.githubusercontent.com/DracoSwagBaby/MINT-PREDICTOR/main/repo/';
-                
-                function loadScript(index) {
-                    if (index >= scripts.length) {
-                        console.log('✅ All MINT-FLIP scripts loaded!');
-                        return;
-                    }
-                    
-                    const scriptUrl = baseUrl + scripts[index] + '?t=' + Date.now();
-                    console.log(`📦 Loading: ${scripts[index]}`);
-                    
-                    fetch(scriptUrl)
-                        .then(response => response.text())
-                        .then(code => {
-                            eval(code);
-                            console.log(`✅ Loaded: ${scripts[index]}`);
-                            loadScript(index + 1);
-                        })
-                        .catch(err => {
-                            console.error(`❌ Failed to load ${scripts[index]}:`, err);
-                            loadScript(index + 1);
-                        });
-                }
-                
-                loadScript(0);
-                
-            }, 1500);
+                mainGui.classList.remove('closing');
+                tutorialPanel.classList.remove('closing');
+                premiumPanel.classList.remove('closing');
+            }, 300);
+        };
+
+        headerRight.appendChild(closeBtn);
+        header.appendChild(headerRight);
+
+        // Tutorial header
+        const tutorialHeader = document.createElement('div');
+        tutorialHeader.className = 'mintflip-tutorial-header';
+        tutorialHeader.innerHTML = 'EASY KEY TUTORIAL';
+
+        const tutorialCloseBtn = document.createElement('button');
+        tutorialCloseBtn.className = 'mintflip-close';
+        tutorialCloseBtn.innerHTML = '×';
+        tutorialCloseBtn.onclick = () => {
+            tutorialPanel.classList.add('closing');
+            setTimeout(() => {
+                tutorialPanel.classList.remove('visible');
+                tutorialPanel.classList.remove('closing');
+                nokeyBtn.style.background = 'transparent';
+                nokeyBtn.style.color = '#2a8b6f';
+                nokeyBtn.style.borderStyle = 'dashed';
+            }, 200);
+        };
+
+        tutorialHeader.appendChild(tutorialCloseBtn);
+
+        // Premium header
+        const premiumHeader = document.createElement('div');
+        premiumHeader.className = 'mintflip-premium-header';
+        premiumHeader.innerHTML = 'GET PREMIUM';
+
+        const premiumCloseBtn = document.createElement('button');
+        premiumCloseBtn.className = 'mintflip-premium-close';
+        premiumCloseBtn.innerHTML = '×';
+        premiumCloseBtn.onclick = () => {
+            premiumPanel.classList.add('closing');
+            setTimeout(() => {
+                premiumPanel.classList.remove('visible');
+                premiumPanel.classList.remove('closing');
+                premiumBtn.style.background = 'transparent';
+                premiumBtn.style.color = '#ffd700';
+                premiumBtn.style.borderStyle = 'dashed';
+            }, 200);
+        };
+
+        premiumHeader.appendChild(premiumCloseBtn);
+
+        // Content
+        const content = document.createElement('div');
+        content.className = 'mintflip-content';
+
+        const title = document.createElement('div');
+        title.className = 'mintflip-title';
+        title.textContent = 'ENTER KEY';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'mintflip-input';
+        input.placeholder = 'ENTER KEY';
+        input.maxLength = 20;
+
+        const loginBtn = document.createElement('button');
+        loginBtn.className = 'mintflip-login-btn';
+        loginBtn.textContent = 'LOGIN';
+
+        const nokeyBtn = document.createElement('button');
+        nokeyBtn.className = 'mintflip-nokey-btn';
+        nokeyBtn.textContent = 'NO KEY?';
+
+        const premiumBtn = document.createElement('button');
+        premiumBtn.className = 'mintflip-premium-btn';
+        premiumBtn.textContent = 'GET PREMIUM';
+
+        const toggleBtn = document.createElement('button');
+        toggleBtn.className = 'mintflip-toggle-btn';
+        toggleBtn.textContent = 'BLUR: ON';
+
+        const errorMsg = document.createElement('div');
+        errorMsg.className = 'mintflip-error';
+        errorMsg.textContent = 'INVALID KEY';
+
+        const footer = document.createElement('div');
+        footer.className = 'mintflip-footer';
+        footer.textContent = 'SYSTEM READY';
+
+        const copyright = document.createElement('div');
+        copyright.className = 'mintflip-copyright';
+        copyright.innerHTML = 'MINT-FLIP © 2026';
+
+        // Tutorial content with Linkvertise checkpoints (no emojis)
+        const tutorialContent = document.createElement('div');
+        tutorialContent.className = 'mintflip-tutorial-content';
+        tutorialContent.innerHTML = `
+            <div class="tutorial-step">
+                <h3>STEP 1: Linkvertise Link</h3>
+                <p>Complete <span class="tutorial-highlight">1 checkpoint</span> on the link below:</p>
+                <div style="background: #1a4d3e; border-radius: 8px; padding: 12px; margin: 10px 0; text-align: center;">
+                    <a href="https://link-hub.net/1249148/ue8g5fynIsn0" target="_blank" style="color: #48d19d; font-weight: bold; text-decoration: none; font-size: 16px;">COMPLETE LINKVERTISE</a>
+                </div>
+                <p style="font-size: 12px; color: #888;">Takes about 30-60 seconds</p>
+            </div>
             
-        } else {
-            errorMsg.style.display = 'block';
-            input.value = '';
-            input.focus();
-            setTimeout(() => {
+            <div class="tutorial-step">
+                <h3>STEP 2: Get Your Key</h3>
+                <p>After completing first checkpoint, your key will be shown on the page.</p>
+                <p style="background: #111; border: 1px solid #1a4d3e; border-radius: 6px; padding: 10px; margin-top: 10px; text-align: center; font-family: monospace; color: #48d19d;">Key appears after first checkpoint</p>
+            </div>
+            
+            <div class="tutorial-step">
+                <h3>STEP 3: Enter Key</h3>
+                <p>Copy your key and paste it in the main window</p>
+            </div>
+            
+            <div class="tutorial-step">
+                <h3>STEP 4: Enjoy</h3>
+                <p>Once verified, you'll get full access to Mint-FLIP</p>
+            </div>
+            
+            <div class="tutorial-note">
+                <p><span class="highlight">Key format:</span> XXXX-XXXX-XXXX</p>
+                <p><span style="color: #48d19d;">Keys are free and refresh daily!</span></p>
+            </div>
+        `;
+
+        // Premium content
+        const premiumContent = document.createElement('div');
+        premiumContent.className = 'mintflip-premium-content';
+        premiumContent.innerHTML = `
+            <div class="premium-step">
+                <h3>STEP 1: Fair Prices</h3>
+                <p>Go to the MINT-FLIP Official Discord Server to the <span class="premium-highlight">#「🌿」𝗠𝗜𝗡𝗧-𝗣𝗟𝗨𝗦</span> channel. There you will see the prices - Good prices and affordable!</p>
+            </div>
+            
+            <div class="premium-step">
+                <h3>STEP 2: Create a Ticket</h3>
+                <p>Go to the MINT-FLIP Official Discord Server and Create a Ticket at the <span class="premium-highlight">#「🎫」𝗧𝗜𝗖𝗞𝗘𝗧</span> channel.</p>
+            </div>
+            
+            <div class="premium-step">
+                <h3>STEP 3: Select Payment Method</h3>
+                <p>In the first step channel (<span class="premium-highlight">#「🌿」𝗠𝗜𝗡𝗧-𝗣𝗟𝗨𝗦</span>) you will find all available payment methods you can use!</p>
+            </div>
+            
+            <div class="premium-step">
+                <h3>STEP 4: After Purchase</h3>
+                <p>After completing your purchase in the ticket with staff/owner, you will receive:</p>
+                <p>• <span class="premium-highlight">Discord Role</span> (Premium access in Discord)</p>
+                <p>• You need to send your <span class="premium-highlight">UID</span> to get Premium on MINT-FLIP</p>
+            </div>
+            
+            <div class="premium-step">
+                <h3>STEP 5: Finding UID</h3>
+                <p>1. Go to <span class="premium-highlight">https://bloxgame.com/profile</span></p>
+                <p>2. Near your profile picture, you'll see a blurred line</p>
+                <p>3. Hold your cursor over it and click to copy</p>
+                <p>4. Send the copied UID in your Discord ticket</p>
+            </div>
+        `;
+
+        tutorialPanel.appendChild(tutorialHeader);
+        tutorialPanel.appendChild(tutorialContent);
+        premiumPanel.appendChild(premiumHeader);
+        premiumPanel.appendChild(premiumContent);
+
+        // Blur toggle
+        let blurEnabled = true;
+        toggleBtn.addEventListener('click', function() {
+            blurEnabled = !blurEnabled;
+            if (blurEnabled) {
+                overlay.classList.remove('no-blur');
+                toggleBtn.textContent = 'BLUR: ON';
+                toggleBtn.style.color = '#48d19d';
+            } else {
+                overlay.classList.add('no-blur');
+                toggleBtn.textContent = 'BLUR: OFF';
+                toggleBtn.style.color = '#4d4d4d';
+            }
+        });
+
+        // NO KEY button
+        nokeyBtn.addEventListener('click', function() {
+            if (premiumPanel.classList.contains('visible')) {
+                premiumPanel.classList.add('closing');
+                setTimeout(() => {
+                    premiumPanel.classList.remove('visible');
+                    premiumPanel.classList.remove('closing');
+                    premiumBtn.style.background = 'transparent';
+                    premiumBtn.style.color = '#ffd700';
+                    premiumBtn.style.borderStyle = 'dashed';
+                }, 200);
+            }
+            if (!tutorialPanel.classList.contains('visible')) {
+                tutorialPanel.classList.remove('closing');
+                tutorialPanel.classList.add('visible');
+                nokeyBtn.style.background = '#1a4d3e';
+                nokeyBtn.style.color = '#48d19d';
+                nokeyBtn.style.borderStyle = 'solid';
+            } else {
+                tutorialPanel.classList.add('closing');
+                setTimeout(() => {
+                    tutorialPanel.classList.remove('visible');
+                    tutorialPanel.classList.remove('closing');
+                    nokeyBtn.style.background = 'transparent';
+                    nokeyBtn.style.color = '#2a8b6f';
+                    nokeyBtn.style.borderStyle = 'dashed';
+                }, 200);
+            }
+            overlay.style.backgroundColor = 'transparent';
+        });
+
+        // PREMIUM button
+        premiumBtn.addEventListener('click', function() {
+            if (tutorialPanel.classList.contains('visible')) {
+                tutorialPanel.classList.add('closing');
+                setTimeout(() => {
+                    tutorialPanel.classList.remove('visible');
+                    tutorialPanel.classList.remove('closing');
+                    nokeyBtn.style.background = 'transparent';
+                    nokeyBtn.style.color = '#2a8b6f';
+                    nokeyBtn.style.borderStyle = 'dashed';
+                }, 200);
+            }
+            if (!premiumPanel.classList.contains('visible')) {
+                premiumPanel.classList.remove('closing');
+                premiumPanel.classList.add('visible');
+                premiumBtn.style.background = '#332a00';
+                premiumBtn.style.color = '#ffd700';
+                premiumBtn.style.borderStyle = 'solid';
+            } else {
+                premiumPanel.classList.add('closing');
+                setTimeout(() => {
+                    premiumPanel.classList.remove('visible');
+                    premiumPanel.classList.remove('closing');
+                    premiumBtn.style.background = 'transparent';
+                    premiumBtn.style.color = '#ffd700';
+                    premiumBtn.style.borderStyle = 'dashed';
+                }, 200);
+            }
+            overlay.style.backgroundColor = 'transparent';
+        });
+
+        // ============================================
+        // ============== MAIN APP STARTS AFTER KEY ==============
+        // ============================================
+        function startMainApp() {
+            // This will be called after successful key entry
+            // All the main app code (timer, UI, predictions) goes here
+            console.log('🚀 Starting main MINT-FLIP app...');
+            
+            // PASTE THE ENTIRE MERGED SCRIPT HERE
+            // (The 4000+ lines of code from the MINT-PREDICTOR file)
+            
+        }
+
+        // Login button
+        loginBtn.addEventListener('click', function() {
+            const key = input.value.trim().toUpperCase();
+            if (key === '2M4P-9K7D-X8R1') {
                 errorMsg.style.display = 'none';
-            }, 5000);
-            mainGui.style.transform = 'translateX(3px)';
-            setTimeout(() => {
-                mainGui.style.transform = 'translateX(0)';
-            }, 100);
+                loginBtn.style.display = 'none';
+                input.style.display = 'none';
+                toggleBtn.style.display = 'none';
+                nokeyBtn.style.display = 'none';
+                premiumBtn.style.display = 'none';
+                
+                const successMsg = document.createElement('div');
+                successMsg.className = 'mintflip-success';
+                successMsg.textContent = 'ACCESS GRANTED';
+                content.insertBefore(successMsg, footer);
+                successMsg.style.display = 'block';
+                
+                // Save authentication
+                localStorage.setItem('mintflip_authenticated', 'true');
+                
+                // Hide key system and start main app
+                setTimeout(() => {
+                    container.style.display = 'none';
+                    overlay.style.display = 'none';
+                    
+                    // Start the main app
+                    startMainApp();
+                    
+                }, 1500);
+                
+            } else {
+                errorMsg.style.display = 'block';
+                input.value = '';
+                input.focus();
+                setTimeout(() => {
+                    errorMsg.style.display = 'none';
+                }, 5000);
+                mainGui.style.transform = 'translateX(3px)';
+                setTimeout(() => {
+                    mainGui.style.transform = 'translateX(0)';
+                }, 100);
+            }
+        });
+
+        input.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') loginBtn.click();
+        });
+
+        content.appendChild(title);
+        content.appendChild(input);
+        content.appendChild(loginBtn);
+        content.appendChild(nokeyBtn);
+        content.appendChild(premiumBtn);
+        content.appendChild(toggleBtn);
+        content.appendChild(errorMsg);
+        content.appendChild(footer);
+        content.appendChild(copyright);
+
+        mainGui.appendChild(header);
+        mainGui.appendChild(content);
+
+        container.appendChild(mainGui);
+        container.appendChild(tutorialPanel);
+        container.appendChild(premiumPanel);
+
+        document.body.appendChild(container);
+
+        // Draggable
+        let isDragging = false;
+        let currentX, currentY, initialX, initialY, xOffset = 0, yOffset = 0;
+
+        header.addEventListener('mousedown', dragStart);
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('mouseup', dragEnd);
+
+        function dragStart(e) {
+            if (e.target === closeBtn || e.target === toggleBtn || e.target === nokeyBtn || e.target === premiumBtn || e.target === tutorialCloseBtn || e.target === premiumCloseBtn) return;
+            initialX = e.clientX - xOffset;
+            initialY = e.clientY - yOffset;
+            if (e.target === header || header.contains(e.target)) {
+                isDragging = true;
+                header.style.cursor = 'grabbing';
+            }
         }
-    });
 
-    input.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') loginBtn.click();
-    });
-
-    content.appendChild(title);
-    content.appendChild(input);
-    content.appendChild(loginBtn);
-    content.appendChild(nokeyBtn);
-    content.appendChild(premiumBtn);
-    content.appendChild(toggleBtn);
-    content.appendChild(errorMsg);
-    content.appendChild(footer);
-    content.appendChild(copyright);
-
-    mainGui.appendChild(header);
-    mainGui.appendChild(content);
-
-    container.appendChild(mainGui);
-    container.appendChild(tutorialPanel);
-    container.appendChild(premiumPanel);
-
-    document.body.appendChild(container);
-
-    // Draggable
-    let isDragging = false;
-    let currentX, currentY, initialX, initialY, xOffset = 0, yOffset = 0;
-
-    header.addEventListener('mousedown', dragStart);
-    document.addEventListener('mousemove', drag);
-    document.addEventListener('mouseup', dragEnd);
-
-    function dragStart(e) {
-        if (e.target === closeBtn || e.target === toggleBtn || e.target === nokeyBtn || e.target === premiumBtn || e.target === tutorialCloseBtn || e.target === premiumCloseBtn) return;
-        initialX = e.clientX - xOffset;
-        initialY = e.clientY - yOffset;
-        if (e.target === header || header.contains(e.target)) {
-            isDragging = true;
-            header.style.cursor = 'grabbing';
+        function drag(e) {
+            if (isDragging) {
+                e.preventDefault();
+                currentX = e.clientX - initialX;
+                currentY = e.clientY - initialY;
+                xOffset = currentX;
+                yOffset = currentY;
+                setTranslate(currentX, currentY, container);
+            }
         }
-    }
 
-    function drag(e) {
-        if (isDragging) {
-            e.preventDefault();
-            currentX = e.clientX - initialX;
-            currentY = e.clientY - initialY;
-            xOffset = currentX;
-            yOffset = currentY;
-            setTranslate(currentX, currentY, container);
+        function setTranslate(xPos, yPos, el) {
+            el.style.transform = `translate(${xPos}px, ${yPos}px)`;
         }
-    }
 
-    function setTranslate(xPos, yPos, el) {
-        el.style.transform = `translate(${xPos}px, ${yPos}px)`;
-    }
+        function dragEnd() {
+            isDragging = false;
+            header.style.cursor = 'move';
+        }
 
-    function dragEnd() {
-        isDragging = false;
-        header.style.cursor = 'move';
-    }
+        setTimeout(() => input.focus(), 100);
 
-    setTimeout(() => input.focus(), 100);
+        return; // Stop here - main app won't load until key is entered
+    }
 
     // Function to show notification
-    function showNotification() {
+    function showProfileNotification() {
         const notifStyle = document.createElement('style');
         notifStyle.textContent = `
             .mintflip-notification {
@@ -1022,7 +1041,6 @@
                 justify-content: space-between;
                 align-items: center;
                 border-bottom: 1px solid #1a4d3e;
-                letter-spacing: 0.5px;
             }
             .mintflip-notification-close {
                 background: transparent;
@@ -1032,12 +1050,7 @@
                 height: 28px;
                 border-radius: 6px;
                 font-size: 16px;
-                font-weight: 400;
                 cursor: pointer;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                transition: all 0.2s;
             }
             .mintflip-notification-close:hover {
                 background: #1a4d3e;
@@ -1199,4 +1212,2746 @@
             })
             .catch(() => {});
     }
+    // ============================================
+    // ============== CONFIG ==============
+    // ============================================
+    const SESSION_TIME = 45 * 60 * 1000; // 45 minutes
+    const COOLDOWN_TIME = 12 * 60 * 60 * 1000; // 12 hours
+    const ALLOWLIST_URL = 'https://api.npoint.io/311a9ae96ea56dadd341?t=' + Date.now();
+
+    // ============================================
+    // ============== UTILS.JS ==============
+    // ============================================
+    function isOnMinesPage() {
+        return window.location.href.includes('/mines');
+    }
+    
+    function isOnTowersPage() {
+        return window.location.href.includes('/towers');
+    }
+    
+    function getMineTiles() {
+        return document.querySelectorAll('button.mines_minesGameItem__S2ytQ');
+    }
+    
+    function findCashoutButton() {
+        const allButtons = document.querySelectorAll('button');
+        for (const btn of allButtons) {
+            if (btn.textContent.includes('End game') || btn.textContent.includes('Cashout')) {
+                return btn;
+            }
+        }
+        return null;
+    }
+    
+    function findStartButton() {
+        const allButtons = document.querySelectorAll('button');
+        for (const btn of allButtons) {
+            if (btn.textContent.includes('Start new game')) {
+                return btn;
+            }
+        }
+        return null;
+    }
+    
+    function clickElement(element) {
+        if (!element) return false;
+        element.click();
+        return true;
+    }
+
+    // ============================================
+    // ============== NOTIFY.JS ==============
+    // ============================================
+    (function() {
+        if (!document.getElementById('mintflip-notify-styles')) {
+            const style = document.createElement('style');
+            style.id = 'mintflip-notify-styles';
+            style.textContent = `
+                .mintflip-notification {
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    width: 320px;
+                    background: #0c0c0c;
+                    border-radius: 12px;
+                    border: 1px solid #1a4d3e;
+                    box-shadow: 0 0 30px rgba(72, 209, 157, 0.3);
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+                    z-index: 9999999;
+                    animation: slideInRight 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                    overflow: hidden;
+                }
+                .mintflip-notification.closing {
+                    animation: slideOutRight 0.3s ease forwards;
+                }
+                @keyframes slideInRight {
+                    from { opacity: 0; transform: translateX(100px); }
+                    to { opacity: 1; transform: translateX(0); }
+                }
+                @keyframes slideOutRight {
+                    from { opacity: 1; transform: translateX(0); }
+                    to { opacity: 0; transform: translateX(100px); }
+                }
+                .mintflip-notification-header {
+                    background: #111111;
+                    padding: 15px 20px;
+                    color: #48d19d;
+                    font-size: 20px;
+                    font-weight: 600;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    border-bottom: 1px solid #1a4d3e;
+                }
+                .mintflip-notification-close {
+                    background: transparent;
+                    color: #2a8b6f;
+                    border: 1px solid #1a4d3e;
+                    width: 28px;
+                    height: 28px;
+                    border-radius: 6px;
+                    font-size: 16px;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: all 0.2s;
+                }
+                .mintflip-notification-close:hover {
+                    background: #1a4d3e;
+                    color: #ffffff;
+                }
+                .mintflip-notification-content {
+                    padding: 20px;
+                    background: #0c0c0c;
+                }
+                .mintflip-notification-message {
+                    color: #cccccc;
+                    font-size: 14px;
+                    line-height: 1.6;
+                }
+                .mintflip-notification-message strong {
+                    color: #48d19d;
+                    font-weight: 600;
+                }
+                @keyframes persistentHeartbeat {
+                    0% { transform: scale(1); border-color: #48d19d; box-shadow: 0 0 0 0 rgba(72, 209, 157, 0.7); }
+                    15% { transform: scale(1.08); border-color: #48d19d; box-shadow: 0 0 0 15px rgba(72, 209, 157, 0); }
+                    30% { transform: scale(1); border-color: #48d19d; box-shadow: 0 0 0 0 rgba(72, 209, 157, 0.7); }
+                    45% { transform: scale(1.05); border-color: #48d19d; box-shadow: 0 0 0 10px rgba(72, 209, 157, 0); }
+                    60% { transform: scale(1); border-color: #48d19d; box-shadow: 0 0 0 0 rgba(72, 209, 157, 0.7); }
+                    100% { transform: scale(1); border-color: #48d19d; box-shadow: 0 0 0 0 rgba(72, 209, 157, 0.7); }
+                }
+                .heartbeat-persistent {
+                    animation: persistentHeartbeat 1.2s ease-in-out infinite !important;
+                    position: relative;
+                    z-index: 10000;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        let activeNotification = null;
+        let heartbeatObserver = null;
+
+        window.showNotification = function(title, message, autoHide = true, duration = 5000) {
+            const existing = document.querySelector('.mintflip-notification');
+            if (existing) existing.remove();
+
+            const notification = document.createElement('div');
+            notification.className = 'mintflip-notification';
+
+            const header = document.createElement('div');
+            header.className = 'mintflip-notification-header';
+            header.innerHTML = title;
+
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'mintflip-notification-close';
+            closeBtn.innerHTML = '×';
+            closeBtn.onclick = () => closeNotification(notification);
+            header.appendChild(closeBtn);
+
+            const content = document.createElement('div');
+            content.className = 'mintflip-notification-content';
+            content.innerHTML = `<div class="mintflip-notification-message">${message}</div>`;
+
+            notification.appendChild(header);
+            notification.appendChild(content);
+            document.body.appendChild(notification);
+
+            activeNotification = notification;
+
+            if (autoHide) {
+                setTimeout(() => closeNotification(notification), duration);
+            }
+
+            return notification;
+        };
+
+        function closeNotification(notification) {
+            if (notification && notification.parentNode) {
+                notification.classList.add('closing');
+                setTimeout(() => {
+                    if (notification.parentNode) notification.remove();
+                    if (activeNotification === notification) activeNotification = null;
+                }, 300);
+            }
+        }
+
+        window.startButtonHeartbeat = function() {
+            if (heartbeatObserver) {
+                heartbeatObserver.disconnect();
+                heartbeatObserver = null;
+            }
+
+            const startButton = document.querySelector('button.button_button__dZRSb.button_primary__LXFHi.gameBetSubmit');
+            
+            if (startButton) {
+                startButton.classList.add('heartbeat-persistent');
+                
+                heartbeatObserver = new MutationObserver(function(mutations) {
+                    mutations.forEach(function(mutation) {
+                        if (mutation.type === 'characterData' || mutation.type === 'childList') {
+                            if (!startButton.textContent.includes('Start') && !startButton.textContent.includes('Play')) {
+                                startButton.classList.remove('heartbeat-persistent');
+                                if (activeNotification) closeNotification(activeNotification);
+                                heartbeatObserver.disconnect();
+                                heartbeatObserver = null;
+                            }
+                        }
+                    });
+                });
+                
+                heartbeatObserver.observe(startButton, {
+                    childList: true,
+                    characterData: true,
+                    subtree: true
+                });
+                
+                return true;
+            }
+            return false;
+        };
+
+        window.MinesRoundNotStarted = function() {
+            const notif = window.showNotification(
+                'MINT-FLIP WARNING',
+                '<strong>Please Start The Round So the Predict Works</strong><br><br>Otherwise <strong>MINT-FLIP</strong> will not Predict!',
+                false,
+                0
+            );
+            
+            setTimeout(() => window.startButtonHeartbeat(), 100);
+            
+            return notif;
+        };
+    })();
+
+    // ============================================
+    // ============== AUTO-FEATURES.JS ==============
+    // ============================================
+    window.autoPlayEnabled = false;
+    window.autoCashoutEnabled = false;
+    window.autoStartEnabled = false;
+    let autoPlayInterval = null;
+    let autoStartInterval = null;
+    let tilesClicked = 0;
+    let currentGameTiles = 0;
+
+    window.clickCashout = function() {
+        const btn = findCashoutButton();
+        if (btn && !btn.disabled) {
+            btn.click();
+            tilesClicked = 0;
+            currentGameTiles = 0;
+            return true;
+        }
+        return false;
+    };
+
+    window.clickTile = function(tile) {
+        if (!tile) return false;
+        
+        if (tilesClicked === 0) {
+            currentGameTiles = window.highlightedTiles.length;
+        }
+        
+        tile.click();
+        tilesClicked++;
+        
+        if (window.autoCashoutEnabled && tilesClicked === currentGameTiles && currentGameTiles > 0) {
+            setTimeout(() => window.clickCashout(), 100);
+        }
+        
+        return true;
+    };
+
+    window.startAutoPlay = function() {
+        if (autoPlayInterval) return;
+        
+        window.autoPlayEnabled = true;
+        tilesClicked = 0;
+        currentGameTiles = window.highlightedTiles.length;
+        
+        let index = 0;
+        autoPlayInterval = setInterval(() => {
+            if (!window.autoPlayEnabled) {
+                window.stopAutoPlay();
+                return;
+            }
+            
+            if (window.highlightedTiles.length === 0) return;
+            
+            if (index < window.highlightedTiles.length) {
+                const tile = window.highlightedTiles[index];
+                if (tile && document.body.contains(tile)) {
+                    window.clickTile(tile);
+                }
+                index++;
+            } else {
+                index = 0;
+            }
+        }, 500);
+    };
+
+    window.stopAutoPlay = function() {
+        if (autoPlayInterval) {
+            clearInterval(autoPlayInterval);
+            autoPlayInterval = null;
+        }
+        window.autoPlayEnabled = false;
+    };
+
+    window.toggleAutoPlay = function() {
+        window.autoPlayEnabled = !window.autoPlayEnabled;
+        if (window.autoPlayEnabled) {
+            if (window.highlightedTiles.length > 0) {
+                window.startAutoPlay();
+            } else {
+                window.autoPlayEnabled = false;
+                alert('Run prediction first');
+            }
+        } else {
+            window.stopAutoPlay();
+        }
+    };
+
+    window.startAutoStart = function() {
+        if (autoStartInterval) return;
+        window.autoStartEnabled = true;
+        
+        autoStartInterval = setInterval(() => {
+            if (!window.autoStartEnabled) {
+                window.stopAutoStart();
+                return;
+            }
+            const btn = findStartButton();
+            if (btn && !btn.disabled) {
+                btn.click();
+                tilesClicked = 0;
+                currentGameTiles = window.highlightedTiles.length;
+            }
+        }, 1000);
+    };
+
+    window.stopAutoStart = function() {
+        if (autoStartInterval) {
+            clearInterval(autoStartInterval);
+            autoStartInterval = null;
+        }
+        window.autoStartEnabled = false;
+    };
+
+    window.toggleAutoStart = function() {
+        window.autoStartEnabled = !window.autoStartEnabled;
+        window.autoStartEnabled ? window.startAutoStart() : window.stopAutoStart();
+    };
+
+    window.toggleAutoCashout = function() {
+        window.autoCashoutEnabled = !window.autoCashoutEnabled;
+    };
+
+    // ============================================
+    // ============== PREDICTION-METHODS.JS ==============
+    // ============================================
+    window.highlightedTiles = [];
+
+    function isTileRevealed(tile) {
+        return tile.disabled || 
+               tile.getAttribute('disabled') !== null ||
+               tile.classList.contains('mines_minesGameItemWin__4kRNF');
+    }
+
+    function isTileBomb(tile) {
+        return tile.classList.contains('mines_minesGameItemOtherMine__cOPla');
+    }
+
+    function watchForBombs() {
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'childList' || mutation.type === 'attributes') {
+                    const bombTiles = document.querySelectorAll('.mines_minesGameItemOtherMine__cOPla');
+                    if (bombTiles.length > 0 && window.highlightedTiles.length > 0) {
+                        window.clearHighlights();
+                    }
+                }
+            });
+        });
+        
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['class']
+        });
+        
+        return observer;
+    }
+
+    let bombObserver = null;
+    if (!bombObserver) {
+        bombObserver = watchForBombs();
+    }
+
+    window.updateMethodOptions = function(category) {
+        const methodSelect = document.getElementById('prediction-method');
+        if (!methodSelect) return;
+        
+        methodSelect.innerHTML = '';
+        
+        const methods = {
+            'random': [
+                { value: 'random-1', text: 'Random 1 Tile' },
+                { value: 'random-3', text: 'Random 3 Tiles' },
+                { value: 'random-5', text: 'Random 5 Tiles' }
+            ],
+            'corner': [
+                { value: 'corner-four', text: 'Four Corners' },
+                { value: 'corner-opposite', text: 'Opposite Corners' },
+                { value: 'corner-single', text: 'Single Corner' }
+            ],
+            'pattern': [
+                { value: 'pattern-checker', text: 'Checkerboard' },
+                { value: 'pattern-diagonal', text: 'Diagonal' },
+                { value: 'pattern-spiral', text: 'Spiral' },
+                { value: 'pattern-zigzag', text: 'Zigzag' }
+            ],
+            'probability': [
+                { value: 'prob-center', text: 'Center Focus' },
+                { value: 'prob-edges', text: 'Edge Strategy' },
+                { value: 'prob-quadrants', text: 'Quadrant' },
+                { value: 'prob-safe-zone', text: 'Safe Zone' }
+            ],
+            'risk': [
+                { value: 'risk-low', text: 'Low Risk' },
+                { value: 'risk-medium', text: 'Medium Risk' },
+                { value: 'risk-high', text: 'High Risk' },
+                { value: 'risk-martingale', text: 'Martingale' }
+            ],
+            'historical': [
+                { value: 'hist-common', text: 'Common' },
+                { value: 'hist-recent', text: 'Recent' },
+                { value: 'hist-winning', text: 'Winning' }
+            ],
+            'advanced': [
+                { value: 'adv-ml', text: 'ML Simulation' },
+                { value: 'adv-statistical', text: 'Statistical' },
+                { value: 'adv-predictive', text: 'Predictive' }
+            ]
+        };
+        
+        if (methods[category]) {
+            methods[category].forEach(method => {
+                const option = document.createElement('option');
+                option.value = method.value;
+                option.textContent = method.text;
+                methodSelect.appendChild(option);
+            });
+        }
+    };
+
+    window.clearHighlights = function() {
+        window.highlightedTiles.forEach(tile => {
+            if (tile && tile.style) {
+                tile.style.outline = '';
+                tile.style.boxShadow = '';
+            }
+        });
+        window.highlightedTiles = [];
+    };
+
+    window.highlightTiles = function(method, minesCount, gridSize) {
+        const startButton = document.querySelector('button.button_button__dZRSb.button_primary__LXFHi.gameBetSubmit');
+        if (startButton && (startButton.textContent.includes('Start new game') || startButton.textContent.includes('Play'))) {
+            if (typeof window.MinesRoundNotStarted === 'function') {
+                window.MinesRoundNotStarted();
+            }
+            return;
+        }
+        
+        window.clearHighlights();
+
+        const tiles = getMineTiles();
+        if (tiles.length === 0) return;
+
+        let [rows, cols] = gridSize.toLowerCase().split('x').map(Number);
+        if (!rows || !cols || rows < 5 || rows > 10 || cols < 5 || cols > 10) {
+            rows = 5;
+            cols = 5;
+        }
+
+        const totalTiles = rows * cols;
+        let patternPredictions = [];
+        
+        if (method === 'random-1') {
+            while (patternPredictions.length < 1) {
+                const r = Math.floor(Math.random() * totalTiles);
+                if (!patternPredictions.includes(r)) patternPredictions.push(r);
+            }
+        } else if (method === 'random-3') {
+            while (patternPredictions.length < 3) {
+                const r = Math.floor(Math.random() * totalTiles);
+                if (!patternPredictions.includes(r)) patternPredictions.push(r);
+            }
+        } else if (method === 'random-5') {
+            while (patternPredictions.length < 5) {
+                const r = Math.floor(Math.random() * totalTiles);
+                if (!patternPredictions.includes(r)) patternPredictions.push(r);
+            }
+        } else if (method === 'corner-four') {
+            patternPredictions = [0, cols-1, (rows-1)*cols, (rows*cols)-1];
+        } else if (method === 'corner-opposite') {
+            patternPredictions = [0, (rows*cols)-1];
+        } else if (method === 'corner-single') {
+            const corners = [0, cols-1, (rows-1)*cols, (rows*cols)-1];
+            patternPredictions = [corners[Math.floor(Math.random() * corners.length)]];
+        } else if (method === 'pattern-checker') {
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    if ((i + j) % 2 === 0) patternPredictions.push(i * cols + j);
+                }
+            }
+        } else if (method === 'pattern-diagonal') {
+            for (let i = 0; i < Math.min(rows, cols); i++) {
+                patternPredictions.push(i * cols + i);
+                const anti = i * cols + (cols - 1 - i);
+                if (!patternPredictions.includes(anti)) patternPredictions.push(anti);
+            }
+        } else if (method === 'pattern-spiral') {
+            const center = Math.floor(rows/2) * cols + Math.floor(cols/2);
+            patternPredictions = [center, center-cols, center+cols, center-1, center+1];
+        } else if (method === 'pattern-zigzag') {
+            for (let i = 0; i < rows; i++) {
+                if (i % 2 === 0) {
+                    for (let j = 0; j < Math.min(2, cols); j++) patternPredictions.push(i * cols + j);
+                } else {
+                    for (let j = Math.max(0, cols-2); j < cols; j++) patternPredictions.push(i * cols + j);
+                }
+            }
+        } else if (method === 'prob-center') {
+            const c = Math.floor(rows/2) * cols + Math.floor(cols/2);
+            patternPredictions = [c, c-cols, c+cols, c-1, c+1].filter(i => i >= 0 && i < totalTiles);
+        } else if (method === 'prob-edges') {
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    if (i === 0 || i === rows-1 || j === 0 || j === cols-1) {
+                        patternPredictions.push(i * cols + j);
+                    }
+                }
+            }
+        } else if (method === 'prob-quadrants') {
+            patternPredictions = [0, cols-1, (rows-1)*cols, (rows*cols)-1];
+        } else if (method === 'prob-safe-zone') {
+            patternPredictions = [3 * cols + 1];
+        } else if (method === 'risk-low') {
+            for (let i = 0; i < Math.min(3, totalTiles); i++) patternPredictions.push(i);
+        } else if (method === 'risk-medium') {
+            for (let i = 0; i < Math.min(5, totalTiles); i++) patternPredictions.push(i);
+        } else if (method === 'risk-high') {
+            for (let i = 0; i < Math.min(8, totalTiles); i++) patternPredictions.push(i);
+        } else if (method === 'risk-martingale') {
+            for (let i = 0; i < totalTiles; i += Math.floor(totalTiles/6)) patternPredictions.push(i);
+        } else if (method === 'hist-common') {
+            for (let i = 0; i < totalTiles; i += Math.floor(totalTiles/7)) patternPredictions.push(i);
+        } else if (method === 'hist-recent') {
+            for (let i = Math.floor(totalTiles*0.3); i < Math.floor(totalTiles*0.7); i += 2) patternPredictions.push(i);
+        } else if (method === 'hist-winning') {
+            for (let i = Math.floor(totalTiles*0.4); i < Math.floor(totalTiles*0.4)+5; i++) patternPredictions.push(i);
+        } else if (method === 'adv-ml') {
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    if ((i + j) % 3 === 0) patternPredictions.push(i * cols + j);
+                }
+            }
+        } else if (method === 'adv-statistical') {
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    if (i === 0 || i === rows-1 || j === 0 || j === cols-1) patternPredictions.push(i * cols + j);
+                }
+            }
+        } else if (method === 'adv-predictive') {
+            for (let i = 1; i < rows-1; i++) {
+                for (let j = 1; j < cols-1; j++) patternPredictions.push(i * cols + j);
+            }
+        }
+
+        patternPredictions = [...new Set(patternPredictions)].filter(i => i >= 0 && i < totalTiles);
+
+        const validPatternPredictions = [];
+        const closedIndices = [];
+        
+        for (let i = 0; i < tiles.length; i++) {
+            if (tiles[i] && !isTileRevealed(tiles[i])) {
+                closedIndices.push(i);
+            }
+        }
+        
+        for (let i = 0; i < patternPredictions.length; i++) {
+            const index = patternPredictions[i];
+            if (tiles[index] && !isTileRevealed(tiles[index])) {
+                validPatternPredictions.push(index);
+            }
+        }
+
+        let targetCount = 5;
+        if (method === 'random-1') targetCount = 1;
+        else if (method === 'random-3') targetCount = 3;
+        else if (method === 'corner-single') targetCount = 1;
+        else if (method === 'corner-opposite') targetCount = 2;
+        else if (method === 'corner-four') targetCount = 4;
+        
+        const finalPredictions = [...validPatternPredictions];
+        
+        if (finalPredictions.length < targetCount && closedIndices.length > 0) {
+            const remainingClosed = closedIndices.filter(idx => !finalPredictions.includes(idx));
+            
+            for (let i = remainingClosed.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [remainingClosed[i], remainingClosed[j]] = [remainingClosed[j], remainingClosed[i]];
+            }
+            
+            for (let i = 0; i < remainingClosed.length && finalPredictions.length < targetCount; i++) {
+                finalPredictions.push(remainingClosed[i]);
+            }
+        }
+        
+        while (finalPredictions.length > targetCount) {
+            finalPredictions.pop();
+        }
+
+        finalPredictions.forEach(index => {
+            if (tiles[index]) {
+                tiles[index].style.outline = '3px solid #48d19d';
+                tiles[index].style.boxShadow = '0 0 15px rgba(72, 209, 157, 0.5)';
+                window.highlightedTiles.push(tiles[index]);
+            }
+        });
+
+        const displayEl = document.getElementById('current-method');
+        if (displayEl) {
+            displayEl.textContent = `Current: ${method} (${rows}x${cols})`;
+        }
+    };
+
+    // ============================================
+    // ============== TOWERS-PREDICTOR.JS ==============
+    // ============================================
+    let towersHighlightedTiles = [];
+    let towersAutoPlayEnabled = false;
+    let towersAutoCashoutEnabled = false;
+    let towersAutoStartEnabled = false;
+    let towersAutoPlayInterval = null;
+    let towersAutoStartInterval = null;
+    let currentTowerIndex = 0;
+    let lastGameState = null;
+    let gameStateInterval = null;
+
+    function getTowerRows() {
+        return document.querySelectorAll('.towers_towersGameRow__flu2C');
+    }
+
+    function getTowerButtons() {
+        return document.querySelectorAll('button.towers_towersGameButton__xLe_v');
+    }
+
+    function findTowersCashoutButton() {
+        const allButtons = document.querySelectorAll('button');
+        for (const btn of allButtons) {
+            if (btn.textContent.includes('End game') || btn.textContent.includes('Cashout')) {
+                return btn;
+            }
+        }
+        return null;
+    }
+
+    function findTowersStartButton() {
+        const allButtons = document.querySelectorAll('button');
+        for (const btn of allButtons) {
+            if (btn.textContent.includes('Start new game')) {
+                return btn;
+            }
+        }
+        return null;
+    }
+
+    function checkGameState() {
+        const endGameBtn = document.querySelector('button.button_button__dZRSb.button_secondary__Fa_lP.gameBetSubmit');
+        const gameActive = endGameBtn && endGameBtn.textContent.includes('End game');
+        
+        if (lastGameState === true && gameActive === false && towersHighlightedTiles.length > 0) {
+            clearTowerHighlights();
+        }
+        
+        lastGameState = gameActive;
+    }
+
+    function clearTowerHighlights() {
+        towersHighlightedTiles.forEach(tile => {
+            if (tile && tile.style) {
+                tile.style.outline = '';
+                tile.style.boxShadow = '';
+            }
+        });
+        towersHighlightedTiles = [];
+        currentTowerIndex = 0;
+        
+        const clearBtn = document.getElementById('towers-clear-btn');
+        if (clearBtn) {
+            clearBtn.style.background = '#1a4d3e';
+            setTimeout(() => {
+                clearBtn.style.background = '';
+            }, 200);
+        }
+    }
+
+    function highlightTowerButton(button) {
+        if (!button) return;
+        button.style.outline = '3px solid #48d19d';
+        button.style.boxShadow = '0 0 15px rgba(72, 209, 157, 0.5)';
+        towersHighlightedTiles.push(button);
+    }
+
+    function getTotalRows() {
+        const d = document.getElementById('towers-difficulty')?.value || 'easy';
+        return d === 'easy' ? 8 : d === 'normal' ? 10 : 12;
+    }
+
+    function towersClickCurrentTile() {
+        if (currentTowerIndex < towersHighlightedTiles.length) {
+            const tile = towersHighlightedTiles[currentTowerIndex];
+            if (tile && document.body.contains(tile)) {
+                tile.click();
+                currentTowerIndex++;
+                
+                if (currentTowerIndex >= towersHighlightedTiles.length && towersAutoCashoutEnabled) {
+                    setTimeout(() => {
+                        const cashoutBtn = findTowersCashoutButton();
+                        if (cashoutBtn && !cashoutBtn.disabled) {
+                            cashoutBtn.click();
+                        }
+                    }, 100);
+                }
+            }
+        }
+    }
+
+    function towersStartAutoPlay() {
+        if (towersAutoPlayInterval) return;
+        if (towersHighlightedTiles.length === 0) {
+            alert('Run prediction first');
+            return;
+        }
+        
+        towersAutoPlayEnabled = true;
+        currentTowerIndex = 0;
+        
+        towersAutoPlayInterval = setInterval(() => {
+            if (!towersAutoPlayEnabled) {
+                towersStopAutoPlay();
+                return;
+            }
+            towersClickCurrentTile();
+        }, 800);
+    }
+
+    function towersStopAutoPlay() {
+        if (towersAutoPlayInterval) {
+            clearInterval(towersAutoPlayInterval);
+            towersAutoPlayInterval = null;
+        }
+        towersAutoPlayEnabled = false;
+    }
+
+    function towersToggleAutoPlay() {
+        const btn = document.getElementById('towers-autoplay-btn');
+        if (!btn) return;
+        
+        towersAutoPlayEnabled = !towersAutoPlayEnabled;
+        
+        if (towersAutoPlayEnabled) {
+            towersStartAutoPlay();
+            btn.textContent = 'AUTO PLAY: ON';
+            btn.classList.add('active');
+        } else {
+            towersStopAutoPlay();
+            btn.textContent = 'AUTO PLAY: OFF';
+            btn.classList.remove('active');
+        }
+    }
+
+    function towersToggleAutoCashout() {
+        const btn = document.getElementById('towers-autocashout-btn');
+        if (!btn) return;
+        
+        towersAutoCashoutEnabled = !towersAutoCashoutEnabled;
+        btn.textContent = towersAutoCashoutEnabled ? 'AUTO CASHOUT: ON' : 'AUTO CASHOUT: OFF';
+        btn.classList.toggle('active', towersAutoCashoutEnabled);
+    }
+
+    function towersStartAutoStart() {
+        if (towersAutoStartInterval) return;
+        
+        towersAutoStartEnabled = true;
+        
+        towersAutoStartInterval = setInterval(() => {
+            if (!towersAutoStartEnabled) {
+                towersStopAutoStart();
+                return;
+            }
+            
+            const startBtn = findTowersStartButton();
+            if (startBtn && !startBtn.disabled) {
+                startBtn.click();
+                currentTowerIndex = 0;
+            }
+        }, 1000);
+    }
+
+    function towersStopAutoStart() {
+        if (towersAutoStartInterval) {
+            clearInterval(towersAutoStartInterval);
+            towersAutoStartInterval = null;
+        }
+        towersAutoStartEnabled = false;
+    }
+
+    function towersToggleAutoStart() {
+        const btn = document.getElementById('towers-autostart-btn');
+        if (!btn) return;
+        
+        towersAutoStartEnabled = !towersAutoStartEnabled;
+        
+        if (towersAutoStartEnabled) {
+            towersStartAutoStart();
+            btn.textContent = 'AUTO START: ON';
+            btn.classList.add('active');
+        } else {
+            towersStopAutoStart();
+            btn.textContent = 'AUTO START: OFF';
+            btn.classList.remove('active');
+        }
+    }
+
+    function predictTowers() {
+        clearTowerHighlights();
+        
+        const method = document.getElementById('towers-method')?.value || 'same-column';
+        const totalRows = getTotalRows();
+        const rows = getTowerRows();
+        
+        if (rows.length === 0) return;
+        
+        const startRow = Math.max(0, rows.length - totalRows);
+        let bottomToTopTiles = [];
+        
+        if (method === 'random-any') {
+            const rowsToPick = Math.floor(Math.random() * totalRows) + 1;
+            const pickedIndices = new Set();
+            
+            while (pickedIndices.size < rowsToPick) {
+                pickedIndices.add(Math.floor(Math.random() * totalRows));
+            }
+            
+            const sortedIndices = Array.from(pickedIndices).sort((a, b) => b - a);
+            
+            sortedIndices.forEach((rowOffset) => {
+                const row = rows[startRow + rowOffset];
+                if (!row) return;
+                
+                const containers = row.querySelectorAll('.towers_towersGameRowContainer__HCJog');
+                if (containers.length === 0) return;
+                
+                const randomCol = Math.floor(Math.random() * containers.length);
+                const btn = containers[randomCol]?.querySelector('button');
+                
+                if (btn) {
+                    bottomToTopTiles.push(btn);
+                }
+            });
+        }
+        else if (method === 'random-3') {
+            const indices = new Set();
+            while (indices.size < 3) indices.add(Math.floor(Math.random() * totalRows));
+            const sortedIndices = Array.from(indices).sort((a, b) => b - a);
+            
+            sortedIndices.forEach((rowOffset) => {
+                const row = rows[startRow + rowOffset];
+                if (!row) return;
+                const containers = row.querySelectorAll('.towers_towersGameRowContainer__HCJog');
+                if (containers.length === 0) return;
+                const randomCol = Math.floor(Math.random() * containers.length);
+                const btn = containers[randomCol]?.querySelector('button');
+                if (btn) bottomToTopTiles.push(btn);
+            });
+        }
+        else if (method === 'random-5') {
+            const indices = new Set();
+            while (indices.size < 5) indices.add(Math.floor(Math.random() * totalRows));
+            const sortedIndices = Array.from(indices).sort((a, b) => b - a);
+            
+            sortedIndices.forEach((rowOffset) => {
+                const row = rows[startRow + rowOffset];
+                if (!row) return;
+                const containers = row.querySelectorAll('.towers_towersGameRowContainer__HCJog');
+                if (containers.length === 0) return;
+                const randomCol = Math.floor(Math.random() * containers.length);
+                const btn = containers[randomCol]?.querySelector('button');
+                if (btn) bottomToTopTiles.push(btn);
+            });
+        }
+        else if (method === 'random-8') {
+            const indices = new Set();
+            while (indices.size < 8 && indices.size < totalRows) {
+                indices.add(Math.floor(Math.random() * totalRows));
+            }
+            const sortedIndices = Array.from(indices).sort((a, b) => b - a);
+            
+            sortedIndices.forEach((rowOffset) => {
+                const row = rows[startRow + rowOffset];
+                if (!row) return;
+                const containers = row.querySelectorAll('.towers_towersGameRowContainer__HCJog');
+                if (containers.length === 0) return;
+                const randomCol = Math.floor(Math.random() * containers.length);
+                const btn = containers[randomCol]?.querySelector('button');
+                if (btn) bottomToTopTiles.push(btn);
+            });
+        }
+        else {
+            for (let i = totalRows - 1; i >= 0; i--) {
+                const row = rows[startRow + i];
+                if (!row) continue;
+                
+                const containers = row.querySelectorAll('.towers_towersGameRowContainer__HCJog');
+                if (containers.length === 0) continue;
+                
+                let col = 1;
+                
+                switch(method) {
+                    case 'same-column': col = 1; break;
+                    case 'zigzag': col = (totalRows - 1 - i) % 3; break;
+                    case 'highest-value':
+                        let highest = 0, idx = 0;
+                        containers.forEach((c, n) => {
+                            const val = c.querySelector('span.text_text__fMaR4')?.textContent;
+                            if (val && parseFloat(val) > highest) {
+                                highest = parseFloat(val);
+                                idx = n;
+                            }
+                        });
+                        col = idx;
+                        break;
+                    case 'alternating': col = (totalRows - 1 - i) % 2; break;
+                    case 'middle-column': col = 1; break;
+                    case 'edges': col = (totalRows - 1 - i) % 2 === 0 ? 0 : 2; break;
+                    case 'progressive': col = (totalRows - 1 - i) % 3; break;
+                    case 'safe-zone': 
+                        if (i >= totalRows - 3) col = 1;
+                        else col = Math.floor(Math.random() * 3);
+                        break;
+                    case 'martingale': 
+                        if (i >= totalRows - 2) col = 0;
+                        else if (i >= totalRows - 4) col = 1;
+                        else col = 2;
+                        break;
+                    default: col = 1;
+                }
+                
+                if (col >= containers.length) col = containers.length - 1;
+                
+                const btn = containers[col]?.querySelector('button');
+                if (btn) bottomToTopTiles.push(btn);
+            }
+        }
+        
+        bottomToTopTiles.forEach(btn => highlightTowerButton(btn));
+        towersHighlightedTiles = bottomToTopTiles;
+    }
+
+    function initTowers() {
+        if (!gameStateInterval) {
+            gameStateInterval = setInterval(checkGameState, 1000);
+        }
+    }
+
+    window.predictTowers = predictTowers;
+    window.clearTowerHighlights = clearTowerHighlights;
+    window.towersToggleAutoPlay = towersToggleAutoPlay;
+    window.towersToggleAutoCashout = towersToggleAutoCashout;
+    window.towersToggleAutoStart = towersToggleAutoStart;
+    window.towersHighlightedTiles = towersHighlightedTiles;
+
+    initTowers();
+
+    // ============================================
+    // ============== BLACKJACK-PREDICTOR.JS ==============
+    // ============================================
+    let lastYourHand = '';
+    let lastBotHand = '';
+    let yourHandElement = null;
+    let botHandElement = null;
+    let aiSelfPlayEnabled = false;
+    let aiInterval = null;
+
+    function findYourHand() {
+        const container = document.querySelector('.hand-value_container__Bj9hW:not(.hand-value_hidden__Pe87M)');
+        if (container) {
+            return container.querySelector('.hand-value_value__FZydR');
+        }
+        return null;
+    }
+
+    function didYouLose() {
+        const yourHandElement = findYourHand();
+        if (yourHandElement) {
+            if (yourHandElement.classList.contains('hand-value_handStateLose__dmDZj')) {
+                return true;
+            }
+            const container = yourHandElement.closest('.hand-value_container__Bj9hW');
+            if (container && container.querySelector('.hand-value_handStateLose__dmDZj')) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function findBotHand() {
+        const container = document.querySelector('.hand-value_container__Bj9hW.hand-value_hidden__Pe87M');
+        if (container) {
+            return container.querySelector('.hand-value_value__FZydR');
+        }
+        return null;
+    }
+
+    function findBlackjackStartButton() {
+        const selectors = [
+            'button.button_button__dZRSb.button_primary__LXFHi.gameBetSubmit',
+            'button.button_primary__LXFHi.gameBetSubmit',
+            '.gameBetActionsContainer button',
+            'button[style*="flex: 0 0 80%"]',
+            'button[style*="flex: 0 0 100%"]'
+        ];
+        
+        for (const selector of selectors) {
+            const btn = document.querySelector(selector);
+            if (btn && (btn.textContent.includes('Start') || btn.textContent.includes('Play'))) {
+                return btn;
+            }
+        }
+        
+        const allButtons = document.querySelectorAll('button');
+        for (const btn of allButtons) {
+            if (btn.textContent.includes('Start new game') || btn.textContent.includes('Play')) {
+                return btn;
+            }
+        }
+        
+        return null;
+    }
+
+    function findInsuranceButton() {
+        const buttons = document.querySelectorAll('button');
+        for (const btn of buttons) {
+            const span = btn.querySelector('span.text_text__fMaR4 span');
+            if (span && span.textContent === 'Insurance') {
+                return btn;
+            }
+            if (btn.textContent.includes('Insurance')) {
+                return btn;
+            }
+        }
+        return null;
+    }
+
+    function findDeclineButton() {
+        const buttons = document.querySelectorAll('button');
+        for (const btn of buttons) {
+            const span = btn.querySelector('span.text_text__fMaR4');
+            if (span && span.textContent === 'Decline') {
+                return btn;
+            }
+            if (btn.classList.contains('insurance_button__oszp5')) {
+                return btn;
+            }
+        }
+        return null;
+    }
+
+    function handleInsurance() {
+        const declineBtn = findDeclineButton();
+        if (declineBtn && !declineBtn.disabled) {
+            declineBtn.click();
+            return true;
+        }
+        
+        const insuranceBtn = findInsuranceButton();
+        if (insuranceBtn && !insuranceBtn.disabled) {
+            insuranceBtn.click();
+            setTimeout(() => {
+                const declineNow = findDeclineButton();
+                if (declineNow && !declineNow.disabled) {
+                    declineNow.click();
+                }
+            }, 100);
+            return true;
+        }
+        
+        return false;
+    }
+
+    function findHitButton() {
+        const buttons = document.querySelectorAll('button');
+        for (const btn of buttons) {
+            const span = btn.querySelector('span.text_text__fMaR4');
+            if (span && span.textContent === 'Hit') {
+                return btn;
+            }
+        }
+        return null;
+    }
+
+    function findStandButton() {
+        const buttons = document.querySelectorAll('button');
+        for (const btn of buttons) {
+            const span = btn.querySelector('span.text_text__fMaR4');
+            if (span && span.textContent === 'Stand') {
+                return btn;
+            }
+        }
+        return null;
+    }
+
+    function findDoubleButton() {
+        const buttons = document.querySelectorAll('button');
+        for (const btn of buttons) {
+            const span = btn.querySelector('span.text_text__fMaR4');
+            if (span && span.textContent === 'Double') {
+                return btn;
+            }
+        }
+        return null;
+    }
+
+    function clickStartButton() {
+        const btn = findBlackjackStartButton();
+        if (btn && !btn.disabled) {
+            btn.click();
+            return true;
+        }
+        return false;
+    }
+
+    function clickDeclineButton() {
+        const btn = findDeclineButton();
+        if (btn && !btn.disabled) {
+            btn.click();
+            return true;
+        }
+        return false;
+    }
+
+    function clickHitButton() {
+        const btn = findHitButton();
+        if (btn && !btn.disabled) {
+            btn.click();
+            return true;
+        }
+        return false;
+    }
+
+    function clickStandButton() {
+        const btn = findStandButton();
+        if (btn && !btn.disabled) {
+            btn.click();
+            return true;
+        }
+        return false;
+    }
+
+    function clickDoubleButton() {
+        const btn = findDoubleButton();
+        if (btn && !btn.disabled) {
+            btn.click();
+            return true;
+        }
+        return false;
+    }
+
+    function getBlackjackAction(playerValue, dealerValue) {
+        const p = parseInt(playerValue);
+        const d = parseInt(dealerValue);
+        
+        if (isNaN(p) || isNaN(d)) return 'WAIT';
+        if (p > 21) return 'BUST';
+        if (p === 21) return 'STAND';
+        
+        function getBustProbability(hand) {
+            const bustCards = [];
+            for (let card = 2; card <= 11; card++) {
+                if (hand + card > 21) {
+                    bustCards.push(card);
+                }
+            }
+            return bustCards.length / 13;
+        }
+        
+        const bustProb = getBustProbability(p);
+        
+        if (bustProb > 0.5) {
+            if (d >= 7 && p <= 15) {
+                return 'HIT';
+            }
+            return 'STAND';
+        }
+        
+        if (p >= 17) return 'STAND';
+        if (p >= 13 && p <= 16 && d <= 6) return 'STAND';
+        if (p >= 13 && p <= 16 && d >= 7) return 'HIT';
+        if (p === 12 && d >= 4 && d <= 6) return 'STAND';
+        if (p === 12) return 'HIT';
+        if (p === 11) return 'DOUBLE';
+        if (p === 10 && d <= 9) return 'DOUBLE';
+        if (p === 9 && d >= 3 && d <= 6) return 'DOUBLE';
+        if (p <= 8) return 'HIT';
+        
+        return 'HIT';
+    }
+
+    function makeAIDecision() {
+        if (!aiSelfPlayEnabled) return;
+        
+        if (handleInsurance()) {
+            return;
+        }
+
+        if (clickDeclineButton()) {
+            return;
+        }
+        
+        if (didYouLose()) {
+            const startBtn = findBlackjackStartButton();
+            if (startBtn) {
+                startBtn.click();
+            }
+            return;
+        }
+        
+        const yourHand = document.getElementById('blackjack-your-hand')?.textContent || '0';
+        const botHand = document.getElementById('blackjack-bot-hand')?.textContent || '0';
+        
+        const yourNum = parseInt(yourHand);
+        const botNum = parseInt(botHand);
+        
+        if (!window.lastHandState) {
+            window.lastHandState = { your: yourNum, bot: botNum, time: Date.now() };
+        }
+        
+        if (window.lastHandState.your === yourNum && 
+            window.lastHandState.bot === botNum && 
+            Date.now() - window.lastHandState.time > 2000) {
+            const startBtn = findBlackjackStartButton();
+            if (startBtn) {
+                startBtn.click();
+            }
+            window.lastHandState = { your: yourNum, bot: botNum, time: Date.now() };
+            return;
+        }
+        
+        if (window.lastHandState.your !== yourNum || window.lastHandState.bot !== botNum) {
+            window.lastHandState = { your: yourNum, bot: botNum, time: Date.now() };
+        }
+        
+        if (botNum >= 22) {
+            const startBtn = findBlackjackStartButton();
+            if (startBtn) {
+                startBtn.click();
+            }
+            return;
+        }
+        
+        if (yourNum > 21) {
+            const startBtn = findBlackjackStartButton();
+            if (startBtn) {
+                startBtn.click();
+            }
+            return;
+        }
+        
+        if (yourNum === 0) {
+            const startBtn = findBlackjackStartButton();
+            if (startBtn) {
+                startBtn.click();
+            }
+            return;
+        }
+        
+        if (isNaN(yourNum)) return;
+        
+        if (yourNum === 21) {
+            const standBtn = findStandButton();
+            if (standBtn) standBtn.click();
+            return;
+        }
+        
+        const action = getBlackjackAction(yourNum, botNum);
+        
+        switch(action) {
+            case 'HIT':
+                const hitBtn = findHitButton();
+                if (hitBtn) hitBtn.click();
+                break;
+            case 'STAND':
+                const standBtn = findStandButton();
+                if (standBtn) standBtn.click();
+                break;
+            case 'DOUBLE':
+                const doubleBtn = findDoubleButton();
+                if (doubleBtn) doubleBtn.click();
+                break;
+        }
+    }
+
+    function toggleAISelfPlay() {
+        aiSelfPlayEnabled = !aiSelfPlayEnabled;
+        
+        const btn = document.getElementById('blackjack-ai-selfplay');
+        if (btn) {
+            btn.textContent = aiSelfPlayEnabled ? 'AI SELF PLAY: ON' : 'AI SELF PLAY: OFF';
+            btn.classList.toggle('active', aiSelfPlayEnabled);
+        }
+        
+        if (aiSelfPlayEnabled) {
+            if (!aiInterval) {
+                aiInterval = setInterval(() => {
+                    if (aiSelfPlayEnabled) {
+                        makeAIDecision();
+                    }
+                }, 1000);
+            }
+        } else {
+            if (aiInterval) {
+                clearInterval(aiInterval);
+                aiInterval = null;
+            }
+        }
+    }
+
+    function updateColors(yourValue, botValue) {
+        const yourUI = document.getElementById('blackjack-your-hand');
+        const botUI = document.getElementById('blackjack-bot-hand');
+        const yourContainer = document.getElementById('your-hand-container');
+        const botContainer = document.getElementById('bot-hand-container');
+        
+        if (!yourUI || !botUI) return;
+        
+        const yourNum = parseInt(yourValue);
+        const botNum = parseInt(botValue);
+        
+        if (!isNaN(yourNum) && !isNaN(botNum)) {
+            if (yourNum > botNum) {
+                yourUI.style.color = '#00ff00';
+                yourUI.style.textShadow = '0 0 10px rgba(0,255,0,0.5)';
+                botUI.style.color = '#ff6b6b';
+                botUI.style.textShadow = 'none';
+                if (yourContainer) yourContainer.style.borderColor = '#00ff00';
+                if (botContainer) botContainer.style.borderColor = '#ff6b6b';
+            } else if (botNum > yourNum) {
+                yourUI.style.color = '#ff6b6b';
+                yourUI.style.textShadow = 'none';
+                botUI.style.color = '#00ff00';
+                botUI.style.textShadow = '0 0 10px rgba(0,255,0,0.5)';
+                if (yourContainer) yourContainer.style.borderColor = '#ff6b6b';
+                if (botContainer) botContainer.style.borderColor = '#00ff00';
+            } else {
+                yourUI.style.color = '#48d19d';
+                botUI.style.color = '#48d19d';
+                yourUI.style.textShadow = '0 0 10px rgba(72,209,157,0.5)';
+                botUI.style.textShadow = '0 0 10px rgba(72,209,157,0.5)';
+                if (yourContainer) yourContainer.style.borderColor = '#48d19d';
+                if (botContainer) botContainer.style.borderColor = '#48d19d';
+            }
+        }
+    }
+
+    function updateBlackjackHands() {
+        if (!yourHandElement || !document.body.contains(yourHandElement)) {
+            yourHandElement = findYourHand();
+        }
+        
+        if (!botHandElement || !document.body.contains(botHandElement)) {
+            botHandElement = findBotHand();
+        }
+        
+        let yourValue = '0';
+        let botValue = '0';
+        
+        if (yourHandElement && document.body.contains(yourHandElement)) {
+            yourValue = yourHandElement.textContent.trim();
+            
+            const yourHandUI = document.getElementById('blackjack-your-hand');
+            if (yourHandUI) {
+                yourHandUI.textContent = yourValue;
+                
+                if (yourValue !== lastYourHand && yourValue.match(/^\d+$/)) {
+                    lastYourHand = yourValue;
+                }
+            }
+        }
+        
+        if (botHandElement && document.body.contains(botHandElement)) {
+            botValue = botHandElement.textContent.trim();
+            
+            const botHandUI = document.getElementById('blackjack-bot-hand');
+            if (botHandUI) {
+                botHandUI.textContent = botValue;
+                
+                if (botValue !== lastBotHand && botValue.match(/^\d+$/)) {
+                    lastBotHand = botValue;
+                }
+            }
+        }
+        
+        updateColors(yourValue, botValue);
+    }
+
+    setInterval(updateBlackjackHands, 100);
+
+    const blackjackObserver = new MutationObserver(() => {
+        if (!yourHandElement || !document.body.contains(yourHandElement)) {
+            yourHandElement = findYourHand();
+        }
+        if (!botHandElement || !document.body.contains(botHandElement)) {
+            botHandElement = findBotHand();
+        }
+    });
+
+    blackjackObserver.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+
+    window.blackjackToggleAISelfPlay = toggleAISelfPlay;
+    window.toggleBlackjackAI = toggleAISelfPlay;
+
+    // ============================================
+    // ============== UI-CORE.JS ==============
+    // ============================================
+    function createStyles() {
+        return `
+            .mintflip-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: transparent;
+                z-index: 99999998;
+                display: block;
+                pointer-events: none;
+            }
+
+            .mintflip-container {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                z-index: 99999999;
+                pointer-events: none;
+            }
+
+            .mintflip-main {
+                width: 550px;
+                max-height: 55vh;
+                background: #0c0c0c;
+                border-radius: 12px;
+                border: 1px solid #1a4d3e;
+                box-shadow: 0 0 20px rgba(72, 209, 157, 0.2);
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+                pointer-events: auto;
+                animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .mintflip-autoplay-btn.active, 
+            .mintflip-autocashout-btn.active, 
+            .mintflip-autostart-btn.active {
+                background: #0f2f24;
+                color: #48d19d;
+                border-color: #48d19d;
+            }
+
+            .blackjack-hand-display {
+                background: #111111;
+                border: 1px solid #1a4d3e;
+                border-radius: 8px;
+                padding: 15px;
+                margin-bottom: 15px;
+                text-align: center;
+            }
+
+            .blackjack-hand-title {
+                color: #2a8b6f;
+                font-size: 12px;
+                text-transform: uppercase;
+                margin-bottom: 8px;
+            }
+
+            .blackjack-hand-value {
+                color: #48d19d;
+                font-size: 36px;
+                font-weight: bold;
+                font-family: monospace;
+            }
+
+            .mintflip-main.closing {
+                animation: popOut 0.3s ease forwards;
+            }
+
+            @keyframes popIn {
+                0% { opacity: 0; transform: scale(0.8); }
+                100% { opacity: 1; transform: scale(1); }
+            }
+
+            @keyframes popOut {
+                0% { opacity: 1; transform: scale(1); }
+                100% { opacity: 0; transform: scale(0.8); }
+            }
+
+            .mintflip-header {
+                background: #111111;
+                padding: 16px 20px;
+                border-radius: 11px 11px 0 0;
+                color: #48d19d;
+                font-size: 22px;
+                font-weight: 600;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                cursor: move;
+                border-bottom: 1px solid #1a4d3e;
+                letter-spacing: 0.5px;
+                user-select: none;
+                flex-shrink: 0;
+            }
+
+            .mintflip-close {
+                background: transparent;
+                color: #2a8b6f;
+                border: 1px solid #1a4d3e;
+                width: 32px;
+                height: 32px;
+                border-radius: 6px;
+                font-size: 18px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.2s;
+            }
+
+            .mintflip-close:hover {
+                background: #1a4d3e;
+                color: #ffffff;
+                border-color: #48d19d;
+            }
+
+            .mintflip-content {
+                display: flex;
+                flex: 1;
+                min-height: 0;
+                overflow: hidden;
+            }
+
+            .mintflip-sidebar {
+                width: 140px;
+                background: #111111;
+                border-right: 2px solid #1a4d3e;
+                padding: 12px 0;
+                flex-shrink: 0;
+                overflow-y: auto;
+            }
+
+            .mintflip-sidebar-item {
+                padding: 10px 15px;
+                color: #cccccc;
+                font-size: 15px;
+                font-weight: 500;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                cursor: pointer;
+                transition: all 0.2s;
+                border-left: 3px solid transparent;
+                margin: 2px 0;
+            }
+
+            .mintflip-sidebar-item:hover {
+                background: #1a4d3e;
+                color: #48d19d;
+                border-left: 3px solid #48d19d;
+            }
+
+            .mintflip-sidebar-item.active {
+                background: #1a4d3e;
+                color: #48d19d;
+                border-left: 3px solid #48d19d;
+            }
+
+            .mintflip-main-content {
+                flex: 1;
+                padding: 20px;
+                background: #0c0c0c;
+                overflow-y: auto;
+                max-height: 100%;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .mintflip-panel {
+                display: none;
+                height: 100%;
+                flex-direction: column;
+            }
+
+            .mintflip-panel.active {
+                display: flex;
+            }
+
+            .mintflip-panel-title {
+                color: #48d19d;
+                font-size: 16px;
+                font-weight: 600;
+                margin-bottom: 15px;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }
+
+            .mintflip-input-group {
+                margin-bottom: 15px;
+            }
+
+            .mintflip-input-group label {
+                display: block;
+                color: #2a8b6f;
+                font-size: 13px;
+                margin-bottom: 5px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+
+            .mintflip-input, .mintflip-select {
+                width: 100%;
+                padding: 10px 12px;
+                background: #111111;
+                border: 1px solid #1a4d3e;
+                border-radius: 6px;
+                color: #ffffff;
+                font-size: 14px;
+                box-sizing: border-box;
+                transition: all 0.2s;
+            }
+
+            .mintflip-select {
+                cursor: pointer;
+                appearance: none;
+                background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2348d19d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+                background-repeat: no-repeat;
+                background-position: right 12px center;
+                background-size: 16px;
+            }
+
+            .mintflip-input:focus, .mintflip-select:focus {
+                outline: none;
+                border-color: #48d19d;
+                background: #151515;
+            }
+
+            .mintflip-input-hint {
+                color: #2a8b6f;
+                font-size: 11px;
+                margin-top: 4px;
+                opacity: 0.7;
+            }
+
+            .mintflip-category-selector {
+                display: flex;
+                gap: 5px;
+                margin-bottom: 10px;
+                flex-wrap: wrap;
+            }
+
+            .mintflip-category-btn {
+                flex: 1;
+                min-width: 60px;
+                padding: 8px 5px;
+                background: transparent;
+                color: #2a8b6f;
+                border: 1px solid #1a4d3e;
+                border-radius: 6px;
+                font-size: 11px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.2s;
+                text-transform: uppercase;
+            }
+
+            .mintflip-category-btn:hover {
+                background: #1a4d3e;
+                color: #48d19d;
+            }
+
+            .mintflip-category-btn.active {
+                background: #1a4d3e;
+                color: #48d19d;
+                border-color: #48d19d;
+            }
+
+            .mintflip-method-display {
+                color: #48d19d;
+                font-size: 12px;
+                margin: 10px 0;
+                padding: 8px;
+                background: #111111;
+                border-radius: 4px;
+                text-align: center;
+                border-left: 3px solid #48d19d;
+            }
+
+            .mintflip-predict-btn, .mintflip-autoplay-btn, .mintflip-autocashout-btn, .mintflip-autostart-btn {
+                width: 100%;
+                padding: 10px;
+                background: transparent;
+                color: #2a8b6f;
+                border: 1px solid #1a4d3e;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                margin: 3px 0;
+            }
+
+            .mintflip-predict-btn {
+                background: #0f2f24;
+                color: #48d19d;
+                border: 1px solid #2a8b6f;
+                margin: 10px 0 5px 0;
+                padding: 12px;
+                font-size: 16px;
+            }
+
+            .mintflip-predict-btn:hover {
+                background: #1a4d3e;
+                color: #ffffff;
+            }
+
+            .mintflip-autoplay-btn.active, .mintflip-autocashout-btn.active, .mintflip-autostart-btn.active {
+                background: #0f2f24;
+                color: #48d19d;
+                border-color: #48d19d;
+            }
+
+            .mintflip-clear-btn {
+                width: 100%;
+                padding: 8px;
+                background: transparent;
+                color: #2a8b6f;
+                border: 1px dashed #1a4d3e;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.2s;
+                text-transform: uppercase;
+                margin: 10px 0 15px 0;
+            }
+
+            .mintflip-clear-btn:hover {
+                background: #1a1a1a;
+                color: #48d19d;
+            }
+
+            .mintflip-footer {
+                color: #2a8b6f;
+                text-align: center;
+                font-size: 11px;
+                padding: 12px 0;
+                border-top: 1px solid #1a4d3e;
+                letter-spacing: 0.5px;
+                flex-shrink: 0;
+                margin-top: auto;
+                background: #0c0c0c;
+            }
+
+            .mintflip-main-content::-webkit-scrollbar, .mintflip-sidebar::-webkit-scrollbar {
+                width: 6px;
+            }
+
+            .mintflip-main-content::-webkit-scrollbar-track, .mintflip-sidebar::-webkit-scrollbar-track {
+                background: #111111;
+            }
+
+            .mintflip-main-content::-webkit-scrollbar-thumb, .mintflip-sidebar::-webkit-scrollbar-thumb {
+                background: #1a4d3e;
+                border-radius: 3px;
+            }
+
+            .mintflip-main-content::-webkit-scrollbar-thumb:hover, .mintflip-sidebar::-webkit-scrollbar-thumb:hover {
+                background: #48d19d;
+            }
+        `;
+    }
+
+    function createBlackjackHandDisplay() {
+        const container = document.createElement('div');
+        container.id = 'blackjack-hand-display';
+        container.style.cssText = `
+            background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 10px 15px;
+            text-align: center;
+            border: 1px solid #00ff00;
+            box-shadow: 0 0 10px rgba(0,255,0,0.2);
+        `;
+        
+        container.innerHTML = `
+            <div style="font-size: 11px; color: #00ff00; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">YOUR HAND</div>
+            <div style="font-size: 42px; font-weight: bold; color: white; line-height: 1;" id="blackjack-hand-value">0</div>
+            <div style="font-size: 10px; color: #666; margin-top: 5px;">live</div>
+        `;
+        
+        return container;
+    }
+
+    function updateBlackjackHand(value) {
+        const handElement = document.getElementById('blackjack-hand-value');
+        if (handElement) {
+            handElement.textContent = value;
+            handElement.style.color = '#00ff00';
+            setTimeout(() => {
+                handElement.style.color = 'white';
+            }, 200);
+        }
+    }
+
+    function createBaseElements() {
+        const overlay = document.createElement('div');
+        overlay.className = 'mintflip-overlay';
+        
+        const container = document.createElement('div');
+        container.className = 'mintflip-container';
+        
+        const mainGui = document.createElement('div');
+        mainGui.className = 'mintflip-main';
+        
+        const header = document.createElement('div');
+        header.className = 'mintflip-header';
+        
+        const headerLeft = document.createElement('div');
+        headerLeft.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        `;
+        
+        const title = document.createElement('span');
+        title.textContent = 'MINT-FLIP | PREDICTOR';
+        title.style.color = '#48d19d';
+        title.style.fontSize = '18px';
+        title.style.fontWeight = '600';
+        
+        const timerBox = document.createElement('div');
+        timerBox.id = 'mintflip-header-timer';
+        timerBox.style.cssText = `
+            background: #0f2f24;
+            color: #48d19d;
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-family: monospace;
+            font-size: 14px;
+            font-weight: bold;
+            border: 1px solid #48d19d;
+            letter-spacing: 1px;
+        `;
+        timerBox.textContent = '45:00';
+        
+        headerLeft.appendChild(title);
+        headerLeft.appendChild(timerBox);
+        
+        const headerRight = document.createElement('div');
+        headerRight.style.cssText = `
+            display: flex;
+            align-items: center;
+        `;
+        
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'mintflip-close';
+        closeBtn.innerHTML = '×';
+        
+        headerRight.appendChild(closeBtn);
+        
+        header.appendChild(headerLeft);
+        header.appendChild(headerRight);
+        
+        const content = document.createElement('div');
+        content.className = 'mintflip-content';
+        
+        const sidebar = document.createElement('div');
+        sidebar.className = 'mintflip-sidebar';
+        
+        const mainContent = document.createElement('div');
+        mainContent.className = 'mintflip-main-content';
+        
+        const footer = document.createElement('div');
+        footer.className = 'mintflip-footer';
+        footer.textContent = 'MINT-FLIP PREDICTOR v1.0';
+        
+        content.appendChild(sidebar);
+        content.appendChild(mainContent);
+        
+        mainGui.appendChild(header);
+        mainGui.appendChild(content);
+        mainGui.appendChild(footer);
+        container.appendChild(mainGui);
+        
+        document.body.appendChild(overlay);
+        document.body.appendChild(container);
+        
+        return { overlay, container, mainGui, header, closeBtn, sidebar, mainContent, footer };
+    }
+
+    // ============================================
+    // ============== UI-TABS.JS ==============
+    // ============================================
+    function createBlackjackPanel() {
+        const panel = document.createElement('div');
+        panel.className = 'mintflip-panel';
+        panel.id = 'blackjack-panel';
+        panel.innerHTML = `
+            <div class="mintflip-panel-title">BLACKJACK</div>
+
+            <!-- BOT HAND -->
+            <div class="blackjack-hand-display" id="bot-hand-container" style="border-color: #ff6b6b;">
+                <div class="blackjack-hand-title">BOT HAND</div>
+                <div class="blackjack-hand-value" id="blackjack-bot-hand">0</div>
+            </div>
+
+            <!-- YOUR HAND -->
+            <div class="blackjack-hand-display" id="your-hand-container" style="border-color: #48d19d;">
+                <div class="blackjack-hand-title">YOUR HAND</div>
+                <div class="blackjack-hand-value" id="blackjack-your-hand">0</div>
+            </div>
+
+            <!-- AI TOGGLE -->
+            <button class="mintflip-autostart-btn" id="blackjack-ai-selfplay">AI SELF PLAY: OFF</button>
+        `;
+        return panel;
+    }
+
+    function createAboutPanel() {
+        const panel = document.createElement('div');
+        panel.className = 'mintflip-panel';
+        panel.id = 'about-panel';
+        panel.innerHTML = `
+            <div class="mintflip-panel-title">ABOUT</div>
+            
+            <div style="margin-bottom: 16px;">
+                <div style="color: #48d19d; font-weight: 600; font-size: 18px; margin-bottom: 4px;">A: About Storing</div>
+                <div style="color: #fff; font-size: 14px; line-height: 1.5;">MINT-FLIP is designed only to have fun without ever storing your personal information.</div>
+            </div>
+            
+            <div style="margin-bottom: 16px;">
+                <div style="color: #48d19d; font-weight: 600; font-size: 18px; margin-bottom: 4px;">B: Cookies</div>
+                <div style="color: #fff; font-size: 14px; line-height: 1.5;">MINT-FLIP will never ask for or access your cookies or any sensible data.</div>
+            </div>
+            
+            <div style="margin-bottom: 16px;">
+                <div style="color: #48d19d; font-weight: 600; font-size: 18px; margin-bottom: 4px;">C: Local Only</div>
+                <div style="color: #fff; font-size: 14px; line-height: 1.5;">100% local execution - all predictions happen on your device, nothing leaves your computer.</div>
+            </div>
+            
+            <div style="margin-bottom: 16px;">
+                <div style="color: #48d19d; font-weight: 600; font-size: 18px; margin-bottom: 4px;">D: Security</div>
+                <div style="color: #fff; font-size: 14px; line-height: 1.5;">Anti-cracking protection with secure encrypted storage for your settings.</div>
+            </div>
+            
+            <div style="margin-bottom: 16px;">
+                <div style="color: #48d19d; font-weight: 600; font-size: 18px; margin-bottom: 4px;">E: Privacy</div>
+                <div style="color: #fff; font-size: 14px; line-height: 1.5;">No data collection, no tracking, no passwords - just a clean product that respects you!</div>
+            </div>
+        `;
+        return panel;
+    }
+
+    function createMinesPanel() {
+        const panel = document.createElement('div');
+        panel.className = 'mintflip-panel active';
+        panel.id = 'mines-panel';
+        panel.innerHTML = `
+            <div class="mintflip-panel-title">MINES</div>
+            <div class="mintflip-input-group">
+                <label>MINES AMOUNT</label>
+                <input type="number" class="mintflip-input" id="mines-count" min="1" max="24" value="3">
+            </div>
+            <div class="mintflip-input-group">
+                <label>GRID SIZE</label>
+                <input type="text" class="mintflip-input" id="grid-size" value="5x5">
+            </div>
+            
+            <div class="mintflip-category-selector" id="category-selector">
+                <button class="mintflip-category-btn active" data-category="random">RANDOM</button>
+                <button class="mintflip-category-btn" data-category="corner">CORNER</button>
+                <button class="mintflip-category-btn" data-category="pattern">PATTERN</button>
+                <button class="mintflip-category-btn" data-category="probability">PROB</button>
+                <button class="mintflip-category-btn" data-category="risk">RISK</button>
+                <button class="mintflip-category-btn" data-category="historical">HIST</button>
+                <button class="mintflip-category-btn" data-category="advanced">ADV</button>
+            </div>
+
+            <div class="mintflip-input-group">
+                <label>METHOD</label>
+                <select class="mintflip-select" id="prediction-method"></select>
+            </div>
+
+            <div class="mintflip-method-display" id="current-method">Random 3 Tiles (5x5)</div>
+            
+            <button class="mintflip-predict-btn" id="predict-btn">PREDICT</button>
+            <button class="mintflip-autoplay-btn" id="autoplay-btn">AUTO PLAY: OFF</button>
+            <button class="mintflip-autocashout-btn" id="autocashout-btn">AUTO CASHOUT: OFF</button>
+            <button class="mintflip-autostart-btn" id="autostart-btn">AUTO START: OFF</button>
+            <button class="mintflip-clear-btn" id="clear-btn">CLEAR</button>
+        `;
+        return panel;
+    }
+
+    function createTowersPanel() {
+        const panel = document.createElement('div');
+        panel.className = 'mintflip-panel';
+        panel.id = 'towers-panel';
+        panel.innerHTML = `
+            <div class="mintflip-panel-title">TOWERS</div>
+            
+            <div class="mintflip-input-group">
+                <label>DIFFICULTY</label>
+                <select class="mintflip-select" id="towers-difficulty">
+                    <option value="easy">Easy</option>
+                    <option value="normal">Normal</option>
+                    <option value="hard">Hard</option>
+                </select>
+            </div>
+
+            <div class="mintflip-input-group">
+                <label>BET AMOUNT</label>
+                <input type="number" class="mintflip-input" id="towers-bet" min="25" value="25">
+            </div>
+
+            <div class="mintflip-input-group">
+                <label>METHOD</label>
+                <select class="mintflip-select" id="towers-method">
+                    <option value="same-column">Same Column</option>
+                    <option value="zigzag">Zigzag</option>
+                    <option value="highest-value">Highest Value</option>
+                    <option value="random-any">Random Any Rows</option>
+                    <option value="random-3">Random 3 Rows</option>
+                    <option value="random-5">Random 5 Rows</option>
+                    <option value="random-8">Random 8 Rows</option>
+                    <option value="alternating">Alternating</option>
+                    <option value="middle-column">Middle Column</option>
+                    <option value="edges">Edges Only</option>
+                    <option value="progressive">Progressive</option>
+                    <option value="safe-zone">Safe Zone</option>
+                    <option value="martingale">Martingale</option>
+                </select>
+            </div>
+            
+            <button class="mintflip-predict-btn" id="towers-predict-btn">PREDICT</button>
+            <button class="mintflip-autoplay-btn" id="towers-autoplay-btn">AUTO PLAY: OFF</button>
+            <button class="mintflip-autocashout-btn" id="towers-autocashout-btn">AUTO CASHOUT: OFF</button>
+            <button class="mintflip-autostart-btn" id="towers-autostart-btn">AUTO START: OFF</button>
+            <button class="mintflip-clear-btn" id="towers-clear-btn">CLEAR</button>
+        `;
+        return panel;
+    }
+
+    function createSidebarButtons() {
+        const minesBtn = document.createElement('div');
+        minesBtn.className = 'mintflip-sidebar-item active';
+        minesBtn.textContent = 'MINES';
+        
+        const towersBtn = document.createElement('div');
+        towersBtn.className = 'mintflip-sidebar-item';
+        towersBtn.textContent = 'TOWERS';
+        
+        const blackjackBtn = document.createElement('div');
+        blackjackBtn.className = 'mintflip-sidebar-item';
+        blackjackBtn.textContent = 'BLACKJACK';
+        
+        const aboutBtn = document.createElement('div');
+        aboutBtn.className = 'mintflip-sidebar-item';
+        aboutBtn.textContent = 'ABOUT';
+        
+        return { minesBtn, towersBtn, blackjackBtn, aboutBtn };
+    }
+
+    // ============================================
+    // ============== EVENT-HANDLERS.JS ==============
+    // ============================================
+    function setupEventHandlers() {
+        document.getElementById('predict-btn')?.addEventListener('click', () => {
+            const count = document.getElementById('mines-count')?.value || 3;
+            const size = document.getElementById('grid-size')?.value || '5x5';
+            const method = document.getElementById('prediction-method')?.value;
+            window.highlightTiles(method, count, size);
+        });
+
+        document.getElementById('autoplay-btn')?.addEventListener('click', function() {
+            window.toggleAutoPlay();
+            this.textContent = window.autoPlayEnabled ? 'AUTO PLAY: ON' : 'AUTO PLAY: OFF';
+            this.classList.toggle('active', window.autoPlayEnabled);
+        });
+
+        document.getElementById('autocashout-btn')?.addEventListener('click', function() {
+            window.toggleAutoCashout();
+            this.textContent = window.autoCashoutEnabled ? 'AUTO CASHOUT: ON' : 'AUTO CASHOUT: OFF';
+            this.classList.toggle('active', window.autoCashoutEnabled);
+        });
+
+        document.getElementById('autostart-btn')?.addEventListener('click', function() {
+            window.toggleAutoStart();
+            this.textContent = window.autoStartEnabled ? 'AUTO START: ON' : 'AUTO START: OFF';
+            this.classList.toggle('active', window.autoStartEnabled);
+        });
+
+        document.getElementById('clear-btn')?.addEventListener('click', () => {
+            window.clearHighlights();
+        });
+
+        document.getElementById('towers-predict-btn')?.addEventListener('click', () => {
+            if (typeof window.predictTowers === 'function') {
+                window.predictTowers();
+            }
+        });
+
+        document.getElementById('towers-autoplay-btn')?.addEventListener('click', function() {
+            if (typeof window.towersToggleAutoPlay === 'function') {
+                window.towersToggleAutoPlay();
+            }
+        });
+
+        document.getElementById('towers-autocashout-btn')?.addEventListener('click', function() {
+            if (typeof window.towersToggleAutoCashout === 'function') {
+                window.towersToggleAutoCashout();
+            }
+        });
+
+        document.getElementById('towers-autostart-btn')?.addEventListener('click', function() {
+            if (typeof window.towersToggleAutoStart === 'function') {
+                window.towersToggleAutoStart();
+            }
+        });
+
+        document.getElementById('towers-clear-btn')?.addEventListener('click', () => {
+            if (typeof window.clearTowerHighlights === 'function') {
+                window.clearTowerHighlights();
+            }
+        });
+
+        document.getElementById('towers-difficulty')?.addEventListener('change', () => {
+            if (typeof window.clearTowerHighlights === 'function') {
+                window.clearTowerHighlights();
+            }
+        });
+
+        document.getElementById('towers-method')?.addEventListener('change', () => {
+            if (typeof window.clearTowerHighlights === 'function') {
+                window.clearTowerHighlights();
+            }
+        });
+
+        document.getElementById('towers-bet')?.addEventListener('input', function(e) {
+            const val = parseFloat(e.target.value);
+            e.target.style.borderColor = val >= 25 ? '#48d19d' : '#ff6b6b';
+        });
+
+        document.getElementById('blackjack-ai-selfplay')?.addEventListener('click', function() {
+            if (typeof window.blackjackToggleAISelfPlay === 'function') {
+                window.blackjackToggleAISelfPlay();
+            } else if (typeof window.toggleBlackjackAI === 'function') {
+                window.toggleBlackjackAI();
+            }
+        });
+
+        document.querySelectorAll('#category-selector .mintflip-category-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('#category-selector .mintflip-category-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                
+                if (typeof window.updateMethodOptions === 'function') {
+                    window.updateMethodOptions(this.dataset.category);
+                }
+            });
+        });
+
+        document.getElementById('grid-size')?.addEventListener('input', function(e) {
+            const val = e.target.value.toLowerCase();
+            if (val.match(/^\d+x\d+$/)) {
+                const [x, y] = val.split('x').map(Number);
+                e.target.style.borderColor = (x >= 5 && x <= 10 && y >= 5 && y <= 10 && x === y) 
+                    ? '#48d19d' : '#ff6b6b';
+            } else {
+                e.target.style.borderColor = '#1a4d3e';
+            }
+        });
+
+        document.getElementById('mines-count')?.addEventListener('input', function(e) {
+            const val = parseInt(e.target.value);
+            e.target.style.borderColor = (val >= 1 && val <= 24) ? '#48d19d' : '#ff6b6b';
+        });
+    }
+
+    // ============================================
+    // ============== TIMER SYSTEM ==============
+    // ============================================
+    let cachedUID = null;
+
+    async function checkAllowlist(uid) {
+        try {
+            const url = `https://api.npoint.io/311a9ae96ea56dadd341?t=${Date.now()}`;
+            const response = await fetch(url, {
+                cache: 'no-store',
+                headers: { 'Pragma': 'no-cache' }
+            });
+            const text = await response.text();
+            const allowlist = JSON.parse(text);
+            return allowlist.includes(uid);
+        } catch (error) {
+            return false;
+        }
+    }
+
+    function getUserUID() {
+        if (cachedUID) return cachedUID;
+        
+        const uidElement = document.querySelector('.Profile_userUID__Qj38P');
+        if (uidElement) {
+            cachedUID = uidElement.textContent.trim();
+            return cachedUID;
+        }
+        
+        const storedUID = localStorage.getItem('mintflip_cached_uid');
+        if (storedUID) {
+            cachedUID = storedUID;
+            return cachedUID;
+        }
+        
+        return null;
+    }
+
+    function saveUID(uid) {
+        cachedUID = uid;
+        localStorage.setItem('mintflip_cached_uid', uid);
+    }
+
+    function waitForUID(callback) {
+        const cached = getUserUID();
+        if (cached) {
+            callback(cached);
+            return;
+        }
+        
+        const observer = new MutationObserver(() => {
+            const uid = getUserUID();
+            if (uid) {
+                observer.disconnect();
+                saveUID(uid);
+                callback(uid);
+            }
+        });
+        
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+        
+        setTimeout(() => {
+            observer.disconnect();
+            callback('anonymous');
+        }, 10000);
+    }
+
+    async function checkSession() {
+        const uid = getUserUID() || 'anonymous';
+
+        const isAllowed = await checkAllowlist(uid);
+        if (isAllowed) {
+            const storageKey = `mintflip_session_${uid}`;
+            const whitelistSession = {
+                status: 'whitelist',
+                startTime: Date.now(),
+                endTime: Infinity,
+                uid: uid
+            };
+            localStorage.setItem(storageKey, JSON.stringify(whitelistSession));
+            return true;
+        }
+        
+        const storageKey = `mintflip_session_${uid}`;
+        const sessionData = JSON.parse(localStorage.getItem(storageKey) || 'null');
+        const now = Date.now();
+        
+        if (sessionData) {
+            if (sessionData.status === 'cooldown') {
+                const timeInCooldown = now - sessionData.endTime;
+                if (timeInCooldown < COOLDOWN_TIME) {
+                    const totalSecondsLeft = Math.floor((COOLDOWN_TIME - timeInCooldown) / 1000);
+                    const hoursLeft = Math.floor(totalSecondsLeft / 3600);
+                    const minutesLeft = Math.floor((totalSecondsLeft % 3600) / 60);
+                    const secondsLeft = totalSecondsLeft % 60;
+                    showCooldownMessage(hoursLeft, minutesLeft, secondsLeft);
+                    return false;
+                } else {
+                    const newSession = {
+                        status: 'active',
+                        startTime: now,
+                        endTime: now + SESSION_TIME,
+                        uid: uid
+                    };
+                    localStorage.setItem(storageKey, JSON.stringify(newSession));
+                    return true;
+                }
+            }
+            
+            if (sessionData.status === 'active') {
+                const timeLeft = sessionData.endTime - now;
+                
+                if (timeLeft <= 0) {
+                    const cooldownSession = {
+                        status: 'cooldown',
+                        endTime: now,
+                        uid: uid
+                    };
+                    localStorage.setItem(storageKey, JSON.stringify(cooldownSession));
+                    showExpiredMessage();
+                    return false;
+                } else {
+                    return true;
+                }
+            }
+        }
+        
+        const newSession = {
+            status: 'active',
+            startTime: now,
+            endTime: now + SESSION_TIME,
+            uid: uid
+        };
+        localStorage.setItem(storageKey, JSON.stringify(newSession));
+        return true;
+    }
+
+    function getRemainingTime() {
+        const uid = getUserUID() || 'anonymous';
+        
+        const storageKey = `mintflip_session_${uid}`;
+        const sessionData = JSON.parse(localStorage.getItem(storageKey) || 'null');
+        
+        if (sessionData) {
+            if (sessionData.status === 'whitelist') {
+                return Infinity;
+            }
+            
+            if (sessionData.status === 'active') {
+                const now = Date.now();
+                const timeLeft = sessionData.endTime - now;
+                return Math.max(0, timeLeft);
+            }
+        }
+        
+        return 0;
+    }
+
+    function startHeaderTimer() {
+        function updateTimer() {
+            const timerEl = document.getElementById('mintflip-header-timer');
+            if (!timerEl) return;
+            
+            const timeLeft = getRemainingTime();
+            
+            if (timeLeft === Infinity) {
+                timerEl.textContent = '∞ INF';
+                timerEl.style.background = '#0f2f24';
+                timerEl.style.color = '#ffd700';
+                timerEl.style.borderColor = '#ffd700';
+                return;
+            }
+            
+            if (timeLeft <= 0) {
+                timerEl.textContent = '00:00';
+                timerEl.style.background = '#2f1a1a';
+                timerEl.style.color = '#ff6b6b';
+                timerEl.style.borderColor = '#ff6b6b';
+                
+                const container = document.querySelector('.mintflip-container');
+                const overlay = document.querySelector('.mintflip-overlay');
+                if (container) container.style.display = 'none';
+                if (overlay) overlay.style.display = 'none';
+                return;
+            }
+            
+            const minutes = Math.floor(timeLeft / (60 * 1000));
+            const seconds = Math.floor((timeLeft % (60 * 1000)) / 1000);
+            
+            timerEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            if (timeLeft < 5 * 60 * 1000) {
+                timerEl.style.background = '#2f1a1a';
+                timerEl.style.color = '#ff6b6b';
+                timerEl.style.borderColor = '#ff6b6b';
+            }
+        }
+        
+        setInterval(updateTimer, 1000);
+    }
+
+    function showCooldownMessage(hours, minutes, seconds) {
+        const msg = document.createElement('div');
+        msg.className = 'mintflip-notification';
+        
+        const header = document.createElement('div');
+        header.className = 'mintflip-notification-header';
+        header.innerHTML = 'MINT-FLIP COOLDOWN';
+        header.style.color = '#48d19d';
+        header.style.borderBottom = '1px solid #48d19d';
+        
+        const content = document.createElement('div');
+        content.className = 'mintflip-notification-content';
+        
+        let totalSeconds = (hours * 3600) + (minutes * 60) + (seconds || 0);
+        
+        const timerDiv = document.createElement('div');
+        timerDiv.style.cssText = `
+            background: #0f2f24;
+            color: #48d19d;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 28px;
+            font-weight: bold;
+            text-align: center;
+            border: 1px solid #48d19d;
+            margin: 10px 0;
+            letter-spacing: 2px;
+        `;
+        
+        function updateTimerDisplay() {
+            const h = Math.floor(totalSeconds / 3600);
+            const m = Math.floor((totalSeconds % 3600) / 60);
+            const s = totalSeconds % 60;
+            timerDiv.textContent = `${h.toString().padStart(2, '0')}h ${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
+        }
+        
+        updateTimerDisplay();
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'mintflip-notification-message';
+        messageDiv.style.marginBottom = '10px';
+        messageDiv.style.textAlign = 'center';
+        messageDiv.innerHTML = '<strong>Your 45 minute session has ended</strong>';
+        
+        const labelDiv = document.createElement('div');
+        labelDiv.style.cssText = `
+            color: #48d19d;
+            font-size: 14px;
+            text-align: center;
+            margin-top: 10px;
+        `;
+        labelDiv.textContent = 'Cooldown Time Remaining';
+        
+        content.appendChild(messageDiv);
+        content.appendChild(timerDiv);
+        content.appendChild(labelDiv);
+        
+        msg.appendChild(header);
+        msg.appendChild(content);
+        document.body.appendChild(msg);
+        
+        const timerInterval = setInterval(() => {
+            totalSeconds--;
+            
+            if (totalSeconds <= 0) {
+                clearInterval(timerInterval);
+                msg.classList.add('closing');
+                setTimeout(() => {
+                    if (msg.parentNode) msg.remove();
+                }, 300);
+                return;
+            }
+            
+            updateTimerDisplay();
+        }, 1000);
+    }
+
+    function showExpiredMessage() {
+        const msg = document.createElement('div');
+        msg.className = 'mintflip-notification';
+        
+        const header = document.createElement('div');
+        header.className = 'mintflip-notification-header';
+        header.innerHTML = 'SESSION EXPIRED';
+        header.style.color = '#48d19d';
+        header.style.borderBottom = '1px solid #48d19d';
+        
+        const content = document.createElement('div');
+        content.className = 'mintflip-notification-content';
+        
+        const cooldownEnd = Date.now() + 12 * 60 * 60 * 1000;
+        
+        const timerDiv = document.createElement('div');
+        timerDiv.style.cssText = `
+            background: #0f2f24;
+            color: #48d19d;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 28px;
+            font-weight: bold;
+            text-align: center;
+            border: 1px solid #48d19d;
+            margin: 10px 0;
+            letter-spacing: 2px;
+        `;
+        
+        function updateTimerDisplay() {
+            const now = Date.now();
+            const timeLeft = Math.max(0, cooldownEnd - now);
+            const seconds = Math.floor(timeLeft / 1000);
+            
+            timerDiv.textContent = `${seconds.toString().padStart(2, '0')}s`;
+            
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                if (msg.parentNode) {
+                    msg.classList.add('closing');
+                    setTimeout(() => msg.remove(), 300);
+                }
+            }
+        }
+        
+        updateTimerDisplay();
+        
+        const timerInterval = setInterval(updateTimerDisplay, 1000);
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'mintflip-notification-message';
+        messageDiv.style.marginBottom = '10px';
+        messageDiv.style.textAlign = 'center';
+        messageDiv.innerHTML = '<strong>Your session has ended</strong>';
+        
+        const labelDiv = document.createElement('div');
+        labelDiv.style.cssText = `
+            color: #48d19d;
+            font-size: 14px;
+            text-align: center;
+            margin-top: 10px;
+        `;
+        labelDiv.textContent = 'LIVE Countdown';
+        
+        content.appendChild(messageDiv);
+        content.appendChild(timerDiv);
+        content.appendChild(labelDiv);
+        
+        msg.appendChild(header);
+        msg.appendChild(content);
+        document.body.appendChild(msg);
+    }
+
+    // ============================================
+    // ============== MAIN INIT ==============
+    // ============================================
+    let initialized = false;
+
+    function init() {
+        if (initialized) return;
+        if (document.querySelector('.mintflip-container')) return;
+        
+        initialized = true;
+        
+        const style = document.createElement('style');
+        style.textContent = createStyles();
+        document.head.appendChild(style);
+
+        const elements = createBaseElements();
+        
+        startHeaderTimer();
+        
+        const { minesBtn, towersBtn, blackjackBtn, aboutBtn } = createSidebarButtons();
+
+        elements.sidebar.appendChild(minesBtn);
+        elements.sidebar.appendChild(towersBtn);
+        elements.sidebar.appendChild(blackjackBtn);
+        elements.sidebar.appendChild(aboutBtn);
+
+        const minesPanel = createMinesPanel();
+        const towersPanel = createTowersPanel();
+        const blackjackPanel = createBlackjackPanel();
+        const aboutPanel = createAboutPanel();
+
+        elements.mainContent.appendChild(minesPanel);
+        elements.mainContent.appendChild(towersPanel);
+        elements.mainContent.appendChild(blackjackPanel);
+        elements.mainContent.appendChild(aboutPanel);
+
+        minesBtn.onclick = () => {
+            document.querySelectorAll('.mintflip-sidebar-item').forEach(el => el.classList.remove('active'));
+            minesBtn.classList.add('active');
+            document.querySelectorAll('.mintflip-panel').forEach(el => el.classList.remove('active'));
+            minesPanel.classList.add('active');
+            if (typeof window.clearHighlights === 'function') window.clearHighlights();
+            if (typeof window.stopAutoPlay === 'function') window.stopAutoPlay();
+            if (typeof window.stopAutoStart === 'function') window.stopAutoStart();
+            if (typeof clearTowerHighlights === 'function') clearTowerHighlights();
+        };
+
+        towersBtn.onclick = () => {
+            document.querySelectorAll('.mintflip-sidebar-item').forEach(el => el.classList.remove('active'));
+            towersBtn.classList.add('active');
+            document.querySelectorAll('.mintflip-panel').forEach(el => el.classList.remove('active'));
+            towersPanel.classList.add('active');
+            if (typeof window.clearHighlights === 'function') window.clearHighlights();
+            if (typeof window.stopAutoPlay === 'function') window.stopAutoPlay();
+            if (typeof window.stopAutoStart === 'function') window.stopAutoStart();
+            if (typeof clearTowerHighlights === 'function') clearTowerHighlights();
+        };
+
+        blackjackBtn.onclick = () => {
+            document.querySelectorAll('.mintflip-sidebar-item').forEach(el => el.classList.remove('active'));
+            blackjackBtn.classList.add('active');
+            document.querySelectorAll('.mintflip-panel').forEach(el => el.classList.remove('active'));
+            blackjackPanel.classList.add('active');
+            if (typeof window.clearHighlights === 'function') window.clearHighlights();
+            if (typeof window.stopAutoPlay === 'function') window.stopAutoPlay();
+            if (typeof window.stopAutoStart === 'function') window.stopAutoStart();
+            if (typeof clearTowerHighlights === 'function') clearTowerHighlights();
+        };
+
+        aboutBtn.onclick = () => {
+            document.querySelectorAll('.mintflip-sidebar-item').forEach(el => el.classList.remove('active'));
+            aboutBtn.classList.add('active');
+            document.querySelectorAll('.mintflip-panel').forEach(el => el.classList.remove('active'));
+            aboutPanel.classList.add('active');
+            if (typeof window.clearHighlights === 'function') window.clearHighlights();
+            if (typeof window.stopAutoPlay === 'function') window.stopAutoPlay();
+            if (typeof window.stopAutoStart === 'function') window.stopAutoStart();
+            if (typeof clearTowerHighlights === 'function') clearTowerHighlights();
+        };
+
+        elements.closeBtn.onclick = () => {
+            elements.mainGui.classList.add('closing');
+            setTimeout(() => {
+                elements.container.style.display = 'none';
+                elements.overlay.style.display = 'none';
+                elements.mainGui.classList.remove('closing');
+                if (typeof window.clearHighlights === 'function') window.clearHighlights();
+                if (typeof window.stopAutoPlay === 'function') window.stopAutoPlay();
+                if (typeof window.stopAutoStart === 'function') window.stopAutoStart();
+                if (typeof clearTowerHighlights === 'function') clearTowerHighlights();
+            }, 300);
+        };
+
+        function initializeMines() {
+            if (typeof window.updateMethodOptions !== 'function') {
+                setTimeout(initializeMines, 500);
+                return;
+            }
+            
+            const methodEl = document.getElementById('prediction-method');
+            if (!methodEl) {
+                setTimeout(initializeMines, 500);
+                return;
+            }
+            
+            window.updateMethodOptions('random');
+            
+            setTimeout(() => {
+                if (methodEl.options.length > 0) {
+                    methodEl.value = 'random-3';
+                } else {
+                    setTimeout(initializeMines, 500);
+                }
+            }, 100);
+        }
+
+        setTimeout(initializeMines, 300);
+        
+        if (typeof setupEventHandlers === 'function') {
+            setupEventHandlers();
+        }
+        
+        let isDragging = false;
+        let offsetX, offsetY;
+
+        elements.header.addEventListener('mousedown', (e) => {
+            if (e.target.classList.contains('mintflip-close')) return;
+            
+            const rect = elements.container.getBoundingClientRect();
+            offsetX = e.clientX - rect.left;
+            offsetY = e.clientY - rect.top;
+            isDragging = true;
+            elements.header.style.cursor = 'grabbing';
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            e.preventDefault();
+            
+            elements.container.style.left = (e.clientX - offsetX) + 'px';
+            elements.container.style.top = (e.clientY - offsetY) + 'px';
+            elements.container.style.transform = 'none';
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+            elements.header.style.cursor = 'move';
+        });
+
+        console.log('Mint-FLIP v4.0 - Complete Edition Loaded');
+    }
+
+    waitForUID(async (uid) => {
+        if (uid) {
+            const sessionValid = await checkSession();
+            if (!sessionValid) {
+                return;
+            }
+        } else {
+            const sessionValid = await checkSession();
+            if (!sessionValid) return;
+        }
+        init();
+    });
+
 })();
